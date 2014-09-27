@@ -465,13 +465,12 @@ abstract class API {
             $event->street_address = $data['street_address'];
             $event->latitude = $data['latitude'];
             $event->longitude = $data['longitude'];
-            $event->comment = $data['comment'];  
+            $event->comment = $data['comment'];
             $data['members'] = (isset($data['members'])) ? $data['members'] : array();
             $data['groups'] = (isset($data['groups'])) ? $data['groups'] : array();
-            if(empty($data['members']) && empty($data['groups'])){
+            if (empty($data['members']) && empty($data['groups'])) {
                 $event->event_status = 'saved';
-            }
-            else{
+            } else {
                 $event->event_status = $data['event_status'];
             }
             $event->timeZoneId = API::GetTimeZoneIDFromLatLong($event->latitude, $event->longitude);
@@ -497,8 +496,8 @@ abstract class API {
                     }
                     $message = sprintf($Lang['messages']['noti_event_modified'], API::get_username($event->event_creator), $pre_event_time, $pre_event['street_address']);
                     //$message = "The event previously scheduled on ".$pre_event->event_time." happening at ".$event->street_address." has been modified.";
-                    API::send_event_notification(array('user_id' => $session->user_id,'session_token' => $session->session_token,'message' => $message, 'event_id' => $data['event_id'], 'action' => Config::read('EVENT_MODIFY')));
-                } 
+                    API::send_event_notification(array('user_id' => $session->user_id, 'session_token' => $session->session_token, 'message' => $message, 'event_id' => $data['event_id'], 'action' => Config::read('EVENT_MODIFY')));
+                }
                 $output = array();
                 $output['event_id'] = $event->event_id;
                 $response['status'] = $Lang['messages']['success'];
@@ -918,9 +917,15 @@ abstract class API {
                 $event['event_type'] = (int) $event['event_type'];
                 $event['latitude'] = (float) $event['latitude'];
                 $event['longitude'] = (float) $event['longitude'];
+                $event['photo'] = (!empty($event['photo'])) ? Config::read('BASE_URL') . '/event_images/' . $event['photo'] : Config::read('BASE_URL') . '/event_images/default.png';
 
                 $invitation_status = Config::read('E_NOT_INVITED');
-                $invitation = ORM::for_table('event_invitations')->select_many('invitation_id', 'sent_status', 'invitation_status')->where_equal('event_id', $event['event_id'])->where_equal('invited_by', $event['event_creator'])->where_equal('user_id', $session->user_id)->find_one();
+                $invitation = ORM::for_table('event_invitations')
+                        ->select_many('invitation_id', 'sent_status', 'invitation_status')
+                        ->where_equal('event_id', $event['event_id'])
+                        ->where_equal('invited_by', $event['event_creator'])
+                        ->where_equal('user_id', $session->user_id)
+                        ->find_one();
                 if ($invitation !== false) {
                     if ($invitation->sent_status != Config::read('E_I_VIEWED')) {
                         $invitation->sent_status = Config::read('E_I_VIEWED');
@@ -933,27 +938,46 @@ abstract class API {
                 $event_creator = ORM::for_table('users')->select_many('name', 'phone_number')->find_one($event['event_creator']);
                 $event['event_creator_name'] = $event_creator->name; //array_pop(ORM::for_table('users')->select('name')->find_one($event['event_creator'])->as_array());
                 $event['event_creator_phone_number'] = $event_creator->phone_number;
-                $invitees = array();
+                $joinee = $invitees = array();
                 $invitees = ORM::for_table('event_invitations')
                         ->table_alias('ei')
-                        ->select_many('u.user_id', 'u.name', 'u.avatar', 'ei.arrival_time', 'ei.invitation_status', 'ei.sent_status')
-                        ->join('users', array('ei.user_id', '=', 'u.user_id'), 'u')
+                        ->select_many('u.user_id', 'u.avatar','ei.arrival_time', 'ei.invitation_status', 'ei.sent_status')
+                        ->select_expr('u.name', 'screen_name')
+                        ->select_expr('g.id', 'group_id')
+                        ->select_expr('g.name', 'group_name')
+                        ->left_outer_join('users', array('ei.user_id', '=', 'u.user_id'), 'u')
+                        ->left_outer_join('group', array('ei.group_id', '=', 'g.id'), 'g')
                         ->where_not_in('ei.user_id', array($session->user_id))
                         ->where_equal('event_id', $data['event_id'])
                         ->order_by_asc('ei.user_id')
                         ->find_array();
+                $mem_incr = 0;
                 if (!empty($invitees)) {
                     foreach ($invitees as $key => $invitee) {
-                        $invitee['avatar'] = ($invitee['avatar'] != '') ? Config::read('BASE_URL') . '/avatar/' . $invitee['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
-                        $invitee['user_id'] = (int) $invitee['user_id'];
-                        $invitee['invitation_status'] = API::get_readable_invitation_status($invitee['invitation_status']);
-                        $invitee['sent_status'] = $sent_status = API::get_readable_invitation_sent_status($invitee['sent_status']);
-                        $invitees[$key] = $invitee;
-                    }
+                        if (empty($invitee['group_id'])) {
+                            $joinee['members'][$mem_incr]['avatar'] = ($invitee['avatar'] != '') ? Config::read('BASE_URL') . '/avatar/' . $invitee['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
+                            $joinee['members'][$mem_incr]['user_id'] = (int) $invitee['user_id'];
+                            $joinee['members'][$mem_incr]['name'] = $invitee['screen_name'];
+                            $joinee['members'][$mem_incr]['invitation_status'] = API::get_readable_invitation_status($invitee['invitation_status']);
+                            $joinee['members'][$mem_incr]['sent_status'] = $sent_status = API::get_readable_invitation_sent_status($invitee['sent_status']);
+                            $mem_incr++;
+                        } else {
+                            $group_id = (int) $invitee['group_id'];
+                            $joinee['groups'][$group_id]['group_id'] = (int) $invitee['group_id'];
+                            $joinee['groups'][$group_id]['group_name'] = $invitee['group_name'];
+                        }
+                        $joinee['arrival_time'] = $invitee['arrival_time'];
+                        $joinee['arrival_time'] = $invitee['arrival_time'];
+                        $joinee['arrival_time'] = $invitee['arrival_time'];
+                    }                    
                 }
-                $event['invitees'] = $invitees;
+                if(isset($joinee['groups']) && !empty($joinee['groups'])){
+                    $joinee['groups'] = array_values($joinee['groups']);
+                }
+                
+                $event['invitees'] = $joinee;
                 $response['status'] = $Lang['messages']['success'];
-                $response['message'] = $event;
+                $response['message'] = $event;               
             } else {
                 $response['message'][] = $Lang['messages']['event_not_found'];
             }
@@ -1767,7 +1791,7 @@ abstract class API {
         $validator = new GUMP();
         $data = $validator->sanitize($pass_params);
         $validated = $validator->validate($data, $rules);
-        $data = $validator->filter($data, $filters);        
+        $data = $validator->filter($data, $filters);
         if ($validated === TRUE) {
             $users = array();
             if (isset($data['action']) && strtolower($data['action']) == Config::read('EVENT_DELETE')) {
