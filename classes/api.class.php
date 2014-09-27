@@ -422,7 +422,8 @@ abstract class API {
             'longitude' => 'required|float',
             'event_id' => 'integer',
             'comment' => 'required|min_len,6',
-            'event_title' => 'required|min_len,2'
+            'event_title' => 'required|min_len,2',
+            'event_status' => 'required'
         );
         $filters = array(
             'event_type' => 'trim|sanitize_numbers',
@@ -436,7 +437,8 @@ abstract class API {
             'members' => 'json_decode',
             'groups' => 'json_decode',
             'comment' => 'trim|sanitize_string',
-            'event_title' => 'trim|sanitize_string'
+            'event_title' => 'trim|sanitize_string',
+            'event_status' => 'trim|sanitize_string'
         );
         $validator = new GUMP();
         $data = $validator->sanitize($_REQUEST);
@@ -463,7 +465,15 @@ abstract class API {
             $event->street_address = $data['street_address'];
             $event->latitude = $data['latitude'];
             $event->longitude = $data['longitude'];
-            $event->comment = $data['comment'];
+            $event->comment = $data['comment'];  
+            $data['members'] = (isset($data['members'])) ? $data['members'] : array();
+            $data['groups'] = (isset($data['groups'])) ? $data['groups'] : array();
+            if(empty($data['members']) && empty($data['groups'])){
+                $event->event_status = 'saved';
+            }
+            else{
+                $event->event_status = $data['event_status'];
+            }
             $event->timeZoneId = API::GetTimeZoneIDFromLatLong($event->latitude, $event->longitude);
             if ($editable === FALSE) {
                 $event->created_at = date("Y-m-d H:i:s", time());
