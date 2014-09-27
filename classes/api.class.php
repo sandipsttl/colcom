@@ -473,27 +473,22 @@ abstract class API {
                 if (isset($_FILES['photo'])) {
                     API::upload_event_image($event->event_id);
                 }
-                if (isset($data['members']) && !empty($data['members'])) {
-                    API::invite_to_event();
-                }
-
+                API::invite_to_event($event->event_id);
                 if (isset($data['event_id']) && $data['event_id'] > 0) {
-//                    $pre_event_time = '';
-//                    if ((strtotime($pre_event['event_time']) - time()) / 24 / 60 / 60 < 1) {
-//                        $pre_event_time = "Today at " . date("H:i", strtotime($pre_event['event_time']));
-//                    } elseif ((strtotime($pre_event['event_time']) - time()) / 24 / 60 / 60 >= 1 && (strtotime($pre_event['event_time']) - time()) / 24 / 60 / 60 < 2) {
-//                        $pre_event_time = "Tomorrow at " . date("H:i", strtotime($pre_event['event_time']));
-//                    } elseif ((strtotime($pre_event['event_time']) - time()) / 24 / 60 / 60 <= 7) {
-//                        $pre_event_time = date("l M d, Y", strtotime($pre_event['event_time'])) . " at " . date("H:i", strtotime($pre_event['event_time']));
-//                    } else {
-//                        $pre_event_time = date("l M d, Y", strtotime($pre_event['event_time'])) . " at " . date("H:i", strtotime($pre_event['event_time']));
-//                    }
-//                    $message = sprintf($Lang['messages']['noti_event_modified'], API::get_username($event->event_creator), $pre_event_time, $pre_event['street_address']);
-//                    //$message = "The event previously scheduled on ".$pre_event->event_time." happening at ".$event->street_address." has been modified.";
-//                    API::send_event_notification(array('message' => $message, 'event_id' => $data['event_id'], 'action' => Config::read('EVENT_MODIFY')));
-                } else {
-                    
-                }
+                    $pre_event_time = '';
+                    if ((strtotime($pre_event['event_time']) - time()) / 24 / 60 / 60 < 1) {
+                        $pre_event_time = "Today at " . date("H:i", strtotime($pre_event['event_time']));
+                    } elseif ((strtotime($pre_event['event_time']) - time()) / 24 / 60 / 60 >= 1 && (strtotime($pre_event['event_time']) - time()) / 24 / 60 / 60 < 2) {
+                        $pre_event_time = "Tomorrow at " . date("H:i", strtotime($pre_event['event_time']));
+                    } elseif ((strtotime($pre_event['event_time']) - time()) / 24 / 60 / 60 <= 7) {
+                        $pre_event_time = date("l M d, Y", strtotime($pre_event['event_time'])) . " at " . date("H:i", strtotime($pre_event['event_time']));
+                    } else {
+                        $pre_event_time = date("l M d, Y", strtotime($pre_event['event_time'])) . " at " . date("H:i", strtotime($pre_event['event_time']));
+                    }
+                    $message = sprintf($Lang['messages']['noti_event_modified'], API::get_username($event->event_creator), $pre_event_time, $pre_event['street_address']);
+                    //$message = "The event previously scheduled on ".$pre_event->event_time." happening at ".$event->street_address." has been modified.";
+                    API::send_event_notification(array('user_id' => $session->user_id,'session_token' => $session->session_token,'message' => $message, 'event_id' => $data['event_id'], 'action' => Config::read('EVENT_MODIFY')));
+                } 
                 $output = array();
                 $output['event_id'] = $event->event_id;
                 $response['status'] = $Lang['messages']['success'];
@@ -570,18 +565,15 @@ abstract class API {
      *
      * @return
      */
-    public static function invite_to_event() {
+    public static function invite_to_event($event_id) {
         global $Lang;
         $session = Session::authenticate();
         $response = array(
             'status' => $Lang['messages']['failure'],
             'message' => ''
         );
-        $rules = array(
-            'event_id' => 'required|max_len,11'
-        );
+        $rules = array();
         $filters = array(
-            'event_id' => 'trim|sanitize_numbers',
             'members' => 'json_decode',
             'groups' => 'json_decode'
         );
@@ -592,127 +584,110 @@ abstract class API {
         if ($validated === TRUE) {
             $count_invited = 0;
             $count_not_invited = 0;
-            if (count($data['members']) > 0) {
-                $old_invitation_array = $current_inviation_array = array();
-                $valid_event = ORM::for_table('events')->where_equal('event_id', $data['event_id'])->where_equal('event_creator', $session->user_id)->find_one(); //if only creator can invite*/
-                if ($valid_event) {
-                    $old_invitations = ORM::for_table('event_invitations')->where_equal('event_id', $data['event_id'])->find_array();
-                    if (!empty($old_invitations)) {
-                        foreach ($old_invitations as $old_invitation) {
-                            if (!empty($old_invitation['group_id'])) {
-                                $old_invitation_array['group_member'][$old_invitation['user_id']] = $old_invitation['group_id'];
-                            } else {
-                                $old_invitation_array['lonly_member'][$old_invitation['user_id']] = $old_invitation['group_id'];
-                            }
+            $old_invitation_array = $current_inviation_array = array();
+            $old_invitation_array['group_member'] = $current_inviation_array['group_member'] = $old_invitation_array['lonly_member'] = $current_inviation_array['lonly_member'] = array();
+            $valid_event = ORM::for_table('events')->where_equal('event_id', $event_id)->where_equal('event_creator', $session->user_id)->find_one(); //if only creator can invite*/
+            if ($valid_event) {
+                $old_invitations = ORM::for_table('event_invitations')->where_equal('event_id', $event_id)->find_array();
+                if (!empty($old_invitations)) {
+                    foreach ($old_invitations as $old_invitation) {
+                        if (!empty($old_invitation['group_id'])) {
+                            $old_invitation_array['group_member'][$old_invitation['user_id']] = $old_invitation['group_id'];
+                        } else {
+                            $old_invitation_array['lonly_member'][$old_invitation['user_id']] = $old_invitation['group_id'];
                         }
                     }
-                    if (isset($data['members']) && !empty($data['members'])) {
-                        foreach ($data['members'] as $user_id) {
-                            if ($user_id != $session->user_id) {
-                                $current_inviation_array['lonly_member'][$user_id] = NULL;
-                            }
+                }
+                if (isset($data['members']) && !empty($data['members'])) {
+                    foreach ($data['members'] as $user_id) {
+                        if ($user_id != $session->user_id) {
+                            $current_inviation_array['lonly_member'][$user_id] = NULL;
                         }
                     }
-                    if (isset($data['groups']) && !empty($data['groups'])) {
-                        $group_members = ORM::for_table('group_members')->where_in('group_id', $data['groups'])->find_array();
-                        foreach ($group_members as $member) {
-                            if (!array_key_exists($member['user_id'], $current_inviation_array)) {
-                                $current_inviation_array['group_member'][$member['user_id']] = $member['group_id'];
-                            }
+                }
+                if (isset($data['groups']) && !empty($data['groups'])) {
+                    $group_members = ORM::for_table('group_members')->where_in('group_id', $data['groups'])->find_array();
+                    foreach ($group_members as $member) {
+                        if (!array_key_exists($member['user_id'], $current_inviation_array)) {
+                            $current_inviation_array['group_member'][$member['user_id']] = $member['group_id'];
                         }
                     }
+                }
 //                    print_r($old_invitation_array);
 //                    print_r($current_inviation_array);
-                    $old_delete_lonly_member = array_diff_assoc($old_invitation_array['lonly_member'], $current_inviation_array['lonly_member']);
-                    $new_inserted_lonly_member = array_diff_assoc($current_inviation_array['lonly_member'], $old_invitation_array['lonly_member']);
-                    $old_delete_group_member = array_diff_assoc($old_invitation_array['group_member'], $current_inviation_array['group_member']);
-                    $new_inserted_group_member = array_diff_assoc($current_inviation_array['group_member'], $old_invitation_array['group_member']);
+                $old_delete_lonly_member = array_diff_assoc($old_invitation_array['lonly_member'], $current_inviation_array['lonly_member']);
+                $new_inserted_lonly_member = array_diff_assoc($current_inviation_array['lonly_member'], $old_invitation_array['lonly_member']);
+                $old_delete_group_member = array_diff_assoc($old_invitation_array['group_member'], $current_inviation_array['group_member']);
+                $new_inserted_group_member = array_diff_assoc($current_inviation_array['group_member'], $old_invitation_array['group_member']);
 //                    print_r($old_delete_lonly_member);
 //                    print_r($new_inserted_lonly_member);
 //                    print_r($old_delete_group_member);
 //                    print_r($new_inserted_group_member);
-
-                    if (!empty($old_delete_lonly_member)) {                         
-                        $event = ORM::for_table('event_invitations')->where_equal('event_id', $data['event_id'])->where_in('user_id', array_keys($old_delete_lonly_member))->where_null('group_id')->delete_many();
-                    }
-                    if (!empty($old_delete_group_member)) {
-                        foreach ($old_delete_group_member as $member_id => $group_id) {
-                            ORM::for_table('event_invitations')->where_equal('event_id', $data['event_id'])->where_equal('user_id', $member_id)->where_equal('group_id', $group_id)->delete();
-                        }
-                    }
-                    if (!empty($new_inserted_lonly_member)) {
-                        foreach ($new_inserted_lonly_member as $member_id => $group_id) {
-                            $new_invitation = ORM::for_table('event_invitations')->create();
-                            $new_invitation->event_id = $data['event_id'];
-                            $new_invitation->invited_by = $session->user_id;
-                            $new_invitation->user_id = $member_id;
-                            $new_invitation->created_at = date("Y-m-d H:i:s", time());
-                            $new_invitation->invitation_status = Config::read('E_PENDING');
-                            $new_invitation->save();
-                        }
-                    }
-                    if (!empty($new_inserted_group_member)) {
-                        foreach ($new_inserted_group_member as $member_id => $group_id) {
-                            $new_invitation = ORM::for_table('event_invitations')->create();
-                            $new_invitation->event_id = $data['event_id'];
-                            $new_invitation->invited_by = $session->user_id;
-                            $new_invitation->user_id = $member_id;
-                            $new_invitation->group_id = $group_id;
-                            $new_invitation->created_at = date("Y-m-d H:i:s", time());
-                            $new_invitation->invitation_status = Config::read('E_PENDING');
-                            $new_invitation->save();
-                        }
-                    }
-
-                    $notifiable_invitations = array();
-                    foreach ($data['members'] as $user_id) {
-                        if ($user_id == $session->user_id) {
-                            $response['message'][] = $Lang['messages']['self_invitation'];
-                            return json_encode($response, JSON_NUMERIC_CHECK);
-                            exit();
-                        }
-//                        if (API::is_user_eligible_for_invitation($user_id)) {
-                        $existing_invitation = ORM::for_table('event_invitations')->where_equal('event_id', $data['event_id'])->where_equal('user_id', $user_id)->count();
-                        if ($existing_invitation) {
-                            $count_not_invited++;
-                        } else {
-                            $new_invitation = ORM::for_table('event_invitations')->create();
-                            $new_invitation->event_id = $data['event_id'];
-                            $new_invitation->user_id = $user_id;
-                            $new_invitation->arrival_time = "";
-                            $new_invitation->invited_by = $session->user_id;
-                            $new_invitation->created_at = date("Y-m-d H:i:s", time());
-                            $new_invitation->invitation_status = Config::read('E_PENDING');
-                            if ($new_invitation->save()) {
-                                $count_invited++;
-                                $notifiable_invitations[] = $new_invitation->invitation_id;
-                            }
-                        }
-//                        } else {
-//                            $count_not_invited++;
-//                        }
-                        $response['status'] = 'success';
-                        $response['message'] = array('invited' => $count_invited, 'not_invited' => $count_not_invited);
-                    }
-
-                    $event_time = '';
-                    if ((strtotime($valid_event->event_time) - time()) / 24 / 60 / 60 < 1) {
-                        $event_time = "Today at " . date("H:i", strtotime($valid_event->event_time));
-                    } elseif ((strtotime($valid_event->event_time) - time()) / 24 / 60 / 60 >= 1 && (strtotime($valid_event->event_time) - time()) / 24 / 60 / 60 < 2) {
-                        $event_time = "on Tomorrow at " . date("H:i", strtotime($valid_event->event_time));
-                    } elseif ((strtotime($valid_event->event_time) - time()) / 24 / 60 / 60 <= 7) {
-                        $event_time = "on " . date("l M d, Y", strtotime($valid_event->event_time)) . " at " . date("H:i", strtotime($valid_event->event_time));
-                    } else {
-                        $event_time = "on " . date("l M d, Y", strtotime($valid_event->event_time)) . " at " . date("H:i", strtotime($valid_event->event_time));
-                    }
-                    $message = sprintf($Lang['messages']['noti_event_invitation'], $event_time, API::get_username($valid_event->event_creator));
-                    //$message = sprintf($Lang['messages']['noti_event_invitation'],$event_time,$valid_event->street_address,API::get_username($valid_event->event_creator));
-//                    API::send_event_notification(array('message' => $message, 'event_id' => $data['event_id'], 'invitations' => $notifiable_invitations, 'action' => Config::read('EVENT_INVITE')));
-                } else {
-                    $response['message'][] = $Lang['messages']['unauth_event'];
+//                    exit;
+                if (!empty($old_delete_lonly_member)) {
+                    ORM::for_table('event_invitations')->where_equal('event_id', $event_id)->where_in('user_id', array_keys($old_delete_lonly_member))->where_null('group_id')->delete_many();
                 }
+                if (!empty($old_delete_group_member)) {
+                    foreach ($old_delete_group_member as $member_id => $group_id) {
+                        ORM::for_table('event_invitations')->where_equal('event_id', $event_id)->where_equal('user_id', $member_id)->where_equal('group_id', $group_id)->find_one()->delete();
+                    }
+                }
+                if (!empty($new_inserted_lonly_member)) {
+                    foreach ($new_inserted_lonly_member as $member_id => $group_id) {
+                        $new_invitation = ORM::for_table('event_invitations')->create();
+                        $new_invitation->event_id = $event_id;
+                        $new_invitation->invited_by = $session->user_id;
+                        $new_invitation->user_id = $member_id;
+                        $new_invitation->created_at = date("Y-m-d H:i:s", time());
+                        $new_invitation->invitation_status = Config::read('E_PENDING');
+                        $new_invitation->save();
+                    }
+                }
+                if (!empty($new_inserted_group_member)) {
+                    foreach ($new_inserted_group_member as $member_id => $group_id) {
+                        $new_invitation = ORM::for_table('event_invitations')->create();
+                        $new_invitation->event_id = $event_id;
+                        $new_invitation->invited_by = $session->user_id;
+                        $new_invitation->user_id = $member_id;
+                        $new_invitation->group_id = $group_id;
+                        $new_invitation->created_at = date("Y-m-d H:i:s", time());
+                        $new_invitation->invitation_status = Config::read('E_PENDING');
+                        $new_invitation->save();
+                    }
+                }
+
+//                    $notifiable_invitations = array();
+//                    foreach ($data['members'] as $user_id) {
+//                        if ($user_id == $session->user_id) {
+//                            $response['message'][] = $Lang['messages']['self_invitation'];
+//                            return json_encode($response, JSON_NUMERIC_CHECK);
+//                            exit();
+//                        }
+////                        if (API::is_user_eligible_for_invitation($user_id)) {
+//                        $existing_invitation = ORM::for_table('event_invitations')->where_equal('event_id', $event_id)->where_equal('user_id', $user_id)->count();
+//                        if ($existing_invitation) {
+//                            $count_not_invited++;
+//                        } else {
+//                            $new_invitation = ORM::for_table('event_invitations')->create();
+//                            $new_invitation->event_id = $event_id;
+//                            $new_invitation->user_id = $user_id;
+//                            $new_invitation->arrival_time = "";
+//                            $new_invitation->invited_by = $session->user_id;
+//                            $new_invitation->created_at = date("Y-m-d H:i:s", time());
+//                            $new_invitation->invitation_status = Config::read('E_PENDING');
+//                            if ($new_invitation->save()) {
+//                                $count_invited++;
+//                                $notifiable_invitations[] = $new_invitation->invitation_id;
+//                            }
+//                        }
+////                        } else {
+////                            $count_not_invited++;
+////                        }
+//                        $response['status'] = 'success';
+//                        $response['message'] = array('invited' => $count_invited, 'not_invited' => $count_not_invited);
+//                    }
             } else {
-                $response['message'][] = $Lang['messages']['param_empty'];
+                $response['message'][] = $Lang['messages']['unauth_event'];
             }
         } else {
             $response['message'] = $validator->get_readable_errors();
@@ -1763,14 +1738,13 @@ abstract class API {
      */
     public static function send_event_notification($params = false) {
         global $Lang;
-        $data = $params ? $params : $_REQUEST;
+        $pass_params = $params ? $params : $_REQUEST;
         if (!$params) {
             $session = Session::authenticate();
         }
         require_once(Config::read('BASE_PATH') . '/includes/device_notification.php');
         $response = array(
-            'status' => $Lang['messages']['failure'],
-            'message' => ''
+            'status' => $Lang['messages']['failure']
         );
         $rules = array(
             'message' => 'required',
@@ -1781,9 +1755,9 @@ abstract class API {
             'event_id' => 'trim|sanitize_numbers'
         );
         $validator = new GUMP();
-        $data = $validator->sanitize($data);
+        $data = $validator->sanitize($pass_params);
         $validated = $validator->validate($data, $rules);
-        $data = $validator->filter($data, $filters);
+        $data = $validator->filter($data, $filters);        
         if ($validated === TRUE) {
             $users = array();
             if (isset($data['action']) && strtolower($data['action']) == Config::read('EVENT_DELETE')) {
@@ -1795,7 +1769,7 @@ abstract class API {
                 $users = Helper::array_value_recursive('user_id', $users);
                 //$users = ORM::for_table('event_invitations')->select('user_id')->where_equal('event_id', $data['event_id'])->where_in('invitation_status',array(Config::read('E_JOINED'),Config::read('E_MAYBE')))->where_not_equal('invitation_notification_sent',1)->find_array();
             } elseif (isset($data['action']) && strtolower($data['action']) == Config::read('EVENT_MODIFY')) {
-                $users = ORM::for_table('event_invitations')->select('user_id')->where_equal('event_id', $data['event_id'])->where_in('invitation_status', array(Config::read('E_PENDING'), Config::read('E_JOINED'), Config::read('E_MAYBE')))->find_array();
+                $users = ORM::for_table('event_invitations')->select('user_id')->distinct()->where_equal('event_id', $data['event_id'])->where_in('invitation_status', array(Config::read('E_PENDING'), Config::read('E_JOINED'), Config::read('E_MAYBE')))->find_array();
                 $users = Helper::array_value_recursive('user_id', $users);
             } elseif (isset($data['action']) && strtolower($data['action']) == Config::read('EVENT_RESPONSE_YES') || strtolower($data['action']) == Config::read('EVENT_RESPONSE_NO') || strtolower($data['action']) == Config::read('EVENT_RESPONSE_MAYBE')) {
                 $users = ORM::for_table('events')->select('event_creator')->where_equal('event_id', $data['event_id'])->find_array();
@@ -1837,7 +1811,7 @@ abstract class API {
                         if (isset($result['success']) && (int) $result['success'] > 0) {
                             $response['status'] = $Lang['messages']['success'];
                             $response['message'] = $Lang['messages']['noti_send_success'];
-                        } else if (isset($result['failure'])) {
+                        } elseif (isset($result['failure'])) {
                             $response['message'][] = $Lang['messages']['noti_send_failure'];
                         }
                     }
