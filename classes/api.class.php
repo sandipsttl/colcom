@@ -724,6 +724,7 @@ abstract class API {
                 ->select_many('e.*', 'ei.invitation_id', 'ei.arrival_time', 'ei.invitation_status', 'ei.sent_status')
                 ->join('events', array('ei.event_id', '=', 'e.event_id'), 'e')
                 ->where_raw('(ei.user_id = ?)', array($session->user_id))
+                ->group_by_expr('ei.event_id,ei.user_id')
                 ->order_by_desc('e.updated_at')
                 ->find_array();
         if (!empty($received_events)) {
