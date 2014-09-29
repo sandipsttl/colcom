@@ -718,15 +718,18 @@ abstract class API {
         );
         $received_events = array();
         $sent_events = array();
+        $saved_events = array();
         $received_events = ORM::for_table('event_invitations')
                 ->table_alias('ei')
                 //->select_many('e.*','ei.*')
                 ->select_many('e.*', 'ei.invitation_id', 'ei.arrival_time', 'ei.invitation_status', 'ei.sent_status')
                 ->join('events', array('ei.event_id', '=', 'e.event_id'), 'e')
                 ->where_raw('(ei.user_id = ?)', array($session->user_id))
+                ->where_gt('e.event_time', date('Y:m:d H:i:s'))
                 ->group_by_expr('ei.event_id,ei.user_id')
-                ->order_by_desc('e.updated_at')
+                ->order_by_desc('e.event_time')
                 ->find_array();
+//        print_r($received_events);exit; 
         if (!empty($received_events)) {
             foreach ($received_events as $key => $received_event) {
                 if ($received_event['sent_status'] == Config::read('E_I_SENT')) {
@@ -739,45 +742,58 @@ abstract class API {
                 $received_events[$key]['sent_status'] = API::get_readable_invitation_sent_status($received_event['sent_status']);
             }
         }
-        $sent_events = ORM::for_table('events')->where_equal('event_creator', $session->user_id)->order_by_desc('updated_at')->find_array();
-        foreach ($sent_events as $key => $sent_event) {
-            //echo '<pre>'; print_r($sent_event); die("");
-            $sent_invitations = ORM::for_table('event_invitations')->select('user_id')->where_equal('event_id', $sent_event['event_id'])->find_array();
-            if (!empty($sent_invitations)) {
-                $sent_events[$key]['more_invited'] = sprintf($Lang['messages']['more_invited'], Api::get_username($sent_invitations[0]['user_id']), (count($sent_invitations) - 1));
+        $rec_sent_events = ORM::for_table('events')->where_equal('event_creator', $session->user_id)->where_gt('event_time', date('Y:m:d H:i:s'))->order_by_desc('event_time')->find_array();
+        foreach ($rec_sent_events as $key => $rec_sent_event) {
+            $sent_invitations = ORM::for_table('event_invitations')->select('user_id')->select_expr('count(user_id)', 'total_members')->select_expr('count(group_id)', 'total_groups')->where_equal('event_id', $rec_sent_event['event_id'])->find_array();
+            if ($rec_sent_events[$key]['event_status'] == 'saved') {
+                $saved_events[$key] = $rec_sent_event;
+                $saved_events[$key]['total_groups'] = $sent_invitations[0]['total_groups'];
+                $saved_events[$key]['total_members'] = $sent_invitations[0]['total_members'];
+            } elseif (empty($sent_invitations[0]['total_groups']) && empty($sent_invitations[0]['total_members'])) {
+                $sent_invitations[$key]['event_status'] = 'saved';
+                $saved_events[$key] = $rec_sent_event;
+                $saved_events[$key]['event_status'] = 'saved';
+                $saved_events[$key]['total_groups'] = $sent_invitations[0]['total_groups'];
+                $saved_events[$key]['total_members'] = $sent_invitations[0]['total_members'];
             } else {
-                $sent_events[$key]['more_invited'] = $Lang['messages']['none_responded'];
+                $sent_events[$key] = $rec_sent_event;
+                $sent_events[$key]['total_groups'] = $sent_invitations[0]['total_groups'];
+                $sent_events[$key]['total_members'] = $sent_invitations[0]['total_members'];
             }
         }
+        $sent_events = array_values($sent_events);
+        $saved_events = array_values($saved_events);
         //group by event type
         //usort($received_events, Helper::make_comparer(array('event_type', SORT_ASC), array('updated_at', SORT_DESC)));
-        //usort($sent_events, Helper::make_comparer(array('event_type', SORT_ASC), array('updated_at', SORT_DESC)));
+        //usort($rec_sent_events, Helper::make_comparer(array('event_type', SORT_ASC), array('updated_at', SORT_DESC)));
         //sort in order: latest updated first, then the rest sorted by event time in descending order
         $latest_sent_event = $latest_received_event = array();
         $received_events_sorted = $received_events;
-        $sent_events_sorted = $sent_events;
+        $sent_events_sorted = $rec_sent_events;
 
-        if (count($received_events) > 0) {
-            $latest_received_event = $received_events[0];
-            unset($received_events[0]);
-            usort($received_events, Helper::make_comparer(array('event_time', SORT_ASC)));
-            $received_events_sorted[0] = $latest_received_event;
-            for ($i = 0; $i < count($received_events); $i++) {
-                $received_events_sorted[($i + 1)] = $received_events[$i];
-            }
-        }
-        if (count($sent_events) > 0) {
-            $latest_sent_event = $sent_events[0];
-            unset($sent_events[0]);
-            usort($sent_events, Helper::make_comparer(array('event_time', SORT_ASC)));
-            $sent_events_sorted[0] = $latest_sent_event;
-            for ($i = 0; $i < count($sent_events); $i++) {
-                $sent_events_sorted[($i + 1)] = $sent_events[$i];
-            }
-        }
+//        if (count($received_events) > 0) {
+//            $latest_received_event = $received_events[0];
+//            unset($received_events[0]);
+//            usort($received_events, Helper::make_comparer(array('event_time', SORT_ASC)));
+//            $received_events_sorted[0] = $latest_received_event;
+//            for ($i = 0; $i < count($received_events); $i++) {
+//                $received_events_sorted[($i + 1)] = $received_events[$i];
+//            }
+//        }
+//        if (count($sent_events) > 0) {
+//            $latest_sent_event = $sent_events[0];
+//            unset($sent_events[0]);
+//            usort($sent_events, Helper::make_comparer(array('event_time', SORT_ASC)));
+//            $sent_events_sorted[0] = $latest_sent_event;
+//            for ($i = 0; $i < count($sent_events); $i++) {
+//                $sent_events_sorted[($i + 1)] = $sent_events[$i];
+//            }
+//        }
         //sorting logic end
-        //$all_events = array('sent'=>$sent_events,'received'=>$received_events);
-        $all_events = array('sent' => $sent_events_sorted, 'received' => $received_events_sorted);
+        $all_events = array('sent' => $sent_events, 'received' => $received_events, 'saved' => $saved_events);
+//        print_r($all_events);
+//        exit;
+//        $all_events = array('sent' => $sent_events_sorted, 'received' => $received_events_sorted, 'saved' => $saved_events);
         $response['status'] = 'success';
         $response['message'] = $all_events;
         return json_encode($response, JSON_NUMERIC_CHECK);
@@ -942,7 +958,7 @@ abstract class API {
                 $joinee = $invitees = array();
                 $invitees = ORM::for_table('event_invitations')
                         ->table_alias('ei')
-                        ->select_many('u.user_id', 'u.avatar','ei.arrival_time', 'ei.invitation_status', 'ei.sent_status')
+                        ->select_many('u.user_id', 'u.avatar', 'ei.arrival_time', 'ei.invitation_status', 'ei.sent_status')
                         ->select_expr('u.name', 'screen_name')
                         ->select_expr('g.id', 'group_id')
                         ->select_expr('g.name', 'group_name')
@@ -970,15 +986,15 @@ abstract class API {
                         $joinee['arrival_time'] = $invitee['arrival_time'];
                         $joinee['arrival_time'] = $invitee['arrival_time'];
                         $joinee['arrival_time'] = $invitee['arrival_time'];
-                    }                    
+                    }
                 }
-                if(isset($joinee['groups']) && !empty($joinee['groups'])){
+                if (isset($joinee['groups']) && !empty($joinee['groups'])) {
                     $joinee['groups'] = array_values($joinee['groups']);
                 }
-                
+
                 $event['invitees'] = $joinee;
                 $response['status'] = $Lang['messages']['success'];
-                $response['message'] = $event;               
+                $response['message'] = $event;
             } else {
                 $response['message'][] = $Lang['messages']['event_not_found'];
             }
