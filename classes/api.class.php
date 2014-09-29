@@ -811,11 +811,13 @@ abstract class API {
 //            }
 //        }
         //sorting logic end        
-        print_r($sent_events);
-        print_r($received_events);
-        print_r($saved_events);
-        exit;
-        $all_events = array('sent' => $sent_events, 'received' => $received_events, 'saved' => $saved_events);
+//        print_r($sent_events);
+//        print_r($received_events);
+//        print_r($saved_events);
+//        exit;
+        $all_events = array_merge($sent_events , $received_events , $saved_events);
+//        print_r($all_events);exit;
+        $all_events = array('sent' => $sent_events, 'received' => $received_events, 'saved' => $saved_events, 'all' => $all_events);
 //        print_r($all_events);
 //        exit;
 //        $all_events = array('sent' => $sent_events_sorted, 'received' => $received_events_sorted, 'saved' => $saved_events);
