@@ -716,9 +716,7 @@ abstract class API {
             'status' => $Lang['messages']['failure'],
             'message' => ''
         );
-        $received_events = array();
-        $sent_events = array();
-        $saved_events = array();
+        $all_events = $received_events = $sent_events = $saved_events = array();
         $received_events = ORM::for_table('event_invitations')
                 ->table_alias('ei')
                 //->select_many('e.*','ei.*')
@@ -740,25 +738,48 @@ abstract class API {
                 unset($received_events[$key]['invitation_id']);
                 $received_events[$key]['event_creator_name'] = API::get_username($received_events[$key]['event_creator']);
                 $received_events[$key]['sent_status'] = API::get_readable_invitation_sent_status($received_event['sent_status']);
+                $received_events[$key]['separator'] = 'received';
             }
         }
         $rec_sent_events = ORM::for_table('events')->where_equal('event_creator', $session->user_id)->where_gt('event_time', date('Y:m:d H:i:s'))->order_by_desc('event_time')->find_array();
         foreach ($rec_sent_events as $key => $rec_sent_event) {
-            $sent_invitations = ORM::for_table('event_invitations')->select('user_id')->select_expr('count(user_id)', 'total_members')->select_expr('count(group_id)', 'total_groups')->where_equal('event_id', $rec_sent_event['event_id'])->find_array();
+            $sent_invitations = ORM::for_table('event_invitations')
+                    ->table_alias('ei')
+                    ->select('ei.user_id')
+                    ->select_expr('u.name', 'screen_name')
+                    ->select_expr('g.name', 'group_name')
+                    ->left_outer_join('users', array('u.user_id', '=', 'ei.user_id'), 'u')
+                    ->left_outer_join('group', array('g.id', '=', 'ei.group_id'), 'g')
+                    ->select_expr('count(ei.user_id)', 'total_members')
+                    ->select_expr('count(ei.group_id)', 'total_groups')
+                    ->where_equal('event_id', $rec_sent_event['event_id'])
+                    ->find_array();
             if ($rec_sent_events[$key]['event_status'] == 'saved') {
                 $saved_events[$key] = $rec_sent_event;
                 $saved_events[$key]['total_groups'] = $sent_invitations[0]['total_groups'];
                 $saved_events[$key]['total_members'] = $sent_invitations[0]['total_members'];
+                unset($rec_sent_events[$key]['event_status']);
+                $saved_events[$key]['separator'] = 'saved';
             } elseif (empty($sent_invitations[0]['total_groups']) && empty($sent_invitations[0]['total_members'])) {
-                $sent_invitations[$key]['event_status'] = 'saved';
                 $saved_events[$key] = $rec_sent_event;
-                $saved_events[$key]['event_status'] = 'saved';
+                unset($sent_invitations[$key]['event_status']);
+                $saved_events[$key]['separator'] = 'saved';
                 $saved_events[$key]['total_groups'] = $sent_invitations[0]['total_groups'];
                 $saved_events[$key]['total_members'] = $sent_invitations[0]['total_members'];
             } else {
                 $sent_events[$key] = $rec_sent_event;
                 $sent_events[$key]['total_groups'] = $sent_invitations[0]['total_groups'];
                 $sent_events[$key]['total_members'] = $sent_invitations[0]['total_members'];
+                if ($sent_invitations[0]['screen_name']) {
+                    $msg = ($sent_invitations[0]['total_members'] - 1) ? ' +' . ($sent_invitations[0]['total_members'] - 1) . ' members' : '';
+                    $sent_events[$key]['more_invited'] = $sent_invitations[0]['screen_name'] . $msg;
+                } elseif ($sent_invitations[0]['group_name']) {
+                    $msg = ($sent_invitations[0]['total_groups'] - 1) ? ' +' . ($sent_invitations[0]['total_groups'] - 1) . ' groups' : '';
+                    $sent_events[$key]['more_invited'] = $sent_invitations[0]['group_name'] . $msg;
+                }
+
+                unset($sent_invitations[$key]['event_status']);
+                $sent_events[$key]['separator'] = 'sent';
             }
         }
         $sent_events = array_values($sent_events);
@@ -789,7 +810,11 @@ abstract class API {
 //                $sent_events_sorted[($i + 1)] = $sent_events[$i];
 //            }
 //        }
-        //sorting logic end
+        //sorting logic end        
+        print_r($sent_events);
+        print_r($received_events);
+        print_r($saved_events);
+        exit;
         $all_events = array('sent' => $sent_events, 'received' => $received_events, 'saved' => $saved_events);
 //        print_r($all_events);
 //        exit;
