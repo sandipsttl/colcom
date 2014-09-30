@@ -854,8 +854,10 @@ abstract class API {
 //        print_r($received_events);
 //        print_r($saved_events);
 //        exit;            
-        $all_events = array_merge($sent_events, $received_events, $saved_events);
-        usort($all_events, Helper::make_comparer(array('event_time', SORT_ASC)));
+            $all_events = array_merge($sent_events, $received_events, $saved_events);
+            if (!empty($all_events)) {
+                usort($all_events, Helper::make_comparer(array('event_time', SORT_ASC)));
+            }
 //        if (count($all_events) > 0) {
 //                $latest_received_event = $received_events[0];
 //                unset($received_events[0]);
@@ -865,7 +867,7 @@ abstract class API {
 //                    $received_events_sorted[($i + 1)] = $received_events[$i];
 //                }
 //            }
-          $all_events = array('sent' => $sent_events, 'received' => $received_events, 'saved' => $saved_events, 'all' => $all_events);
+            $all_events = array('sent' => $sent_events, 'received' => $received_events, 'saved' => $saved_events, 'all' => $all_events);
 //        print_r($all_events);
 //        exit;
 //        $all_events = array('sent' => $sent_events_sorted, 'received' => $received_events_sorted, 'saved' => $saved_events);
@@ -2693,7 +2695,8 @@ abstract class API {
             return json_encode($response, JSON_NUMERIC_CHECK);
         }
     }
-/**
+
+    /**
      * API::filter_friend_contacts()
      *
      * @return
@@ -2774,6 +2777,7 @@ abstract class API {
         }
         return json_encode($response, JSON_NUMERIC_CHECK);
     }
+
 }
 
 ?>
