@@ -2719,24 +2719,29 @@ abstract class API {
             'phonebook' => 'required'
         );
         $filters = array(
-            'phonebook' => 'trim|json_decode'
+            'phonebook' => 'trim'
         );
         $validator = new GUMP();
         $data = $validator->sanitize($_REQUEST);
         $validated = $validator->validate($data, $rules);
         $data = $validator->filter($data, $filters);
+        $normal_users = $application_user = $application_friends = array();
         if ($validated === TRUE) {
             $sync_counter = 0;
             $phonebook = $data['phonebook'];
+            $phonebook = (json_decode(htmlspecialchars_decode($phonebook),JSON_OBJECT_AS_ARRAY));           
             if (count($phonebook) > 0) {
                 //update current user
                 $current_user = ORM::for_table('users')->find_one($session->user_id);
                 $current_user->phonebook_contact_count = count($phonebook);
                 $current_user->save();
-
+                $phonebook_truncate_phone_number = Helper::array_value_recursive('phone_number_tr', $phonebook);
+                
                 //get users from phone contacts
-                $users_from_phonebook = ORM::for_table('users')->select('user_id')->where_in('phone_number_tr', $phonebook)->order_by_asc('user_id')->find_array();
-                $users_from_phonebook = Helper::array_value_recursive('user_id', $users_from_phonebook);
+                $app_users = ORM::for_table('users')->select_many('user_id','name', 'email', 'phone_number', 'phone_number_tr')->where_in('phone_number_tr', $phonebook_truncate_phone_number)->order_by_asc('user_id')->find_array();
+                $app_user_id_arr = Helper::array_value_recursive('user_id', $app_users);
+                $app_user_tr_phonenumber = Helper::array_value_recursive('phone_number_tr', $app_users);
+                
                 //get existing friends
                 $existing_friends = array();
                 $sql = "( SELECT receiver_id AS user_id
@@ -2757,27 +2762,45 @@ abstract class API {
                     $existing_friends = Helper::array_value_recursive('user_id', $existing_friends);
                     $existing_friends[] = $session->user_id;
                 }
-
+                
                 //get friends from phone but not friends in app yet
-                $friends_from_phonebook = array_diff($users_from_phonebook, $existing_friends);
-
-                //send frinds requests
-                if (!empty($friends_from_phonebook)) {
-                    foreach ($friends_from_phonebook as $friend) {
-                        $friend_request = ORM::for_table('friend_requests')->create();
-                        $friend_request->sender_id = $session->user_id;
-                        $friend_request->receiver_id = $friend;
-                        $friend_request->status = Config::read('F_PENDING');
-                        if ($friend_request->save()) {
-                            $sync_counter++;
-                        }
-                    }
+                $friends_from_phonebook = array_diff($app_user_id_arr, $existing_friends);
+                $normal_incr = $app_user_incr = $app_friend_incr = 0;
+                foreach($phonebook as $phonebook_user){
+                    if(!in_array($phonebook_user['phone_number_tr'], $app_user_tr_phonenumber)){
+                        $normal_users[$normal_incr] = $phonebook_user;
+                        $normal_incr++;
+                    }                    
                 }
+                
+                foreach($app_users as $app_user){
+                    if(in_array($app_user['user_id'], $existing_friends)){
+                        $application_friends[$app_friend_incr] = $app_user;
+                        $app_friend_incr++;
+                    }
+                    else{
+                        $application_user[$app_user_incr] = $app_user;
+                        $app_user_incr++;
+                    }
+                }               
+                $contact_list = array('normal_user' => $normal_users, 'app_user' => $application_user, 'app_friend' => $application_friends);
+                $response['message'] = $contact_list;
+                //send frinds requests
+//                if (!empty($friends_from_phonebook)) {
+//                    foreach ($friends_from_phonebook as $friend) {
+//                        $friend_request = ORM::for_table('friend_requests')->create();
+//                        $friend_request->sender_id = $session->user_id;
+//                        $friend_request->receiver_id = $friend;
+//                        $friend_request->status = Config::read('F_PENDING');
+//                        if ($friend_request->save()) {
+//                            $sync_counter++;
+//                        }
+//                    }
+//                }
                 $response['status'] = $Lang['messages']['success'];
-                $response['message'][] = sprintf($Lang['messages']['sync_stat'], $sync_counter);
             } else {
                 $response['status'] = $Lang['messages']['success'];
-                $response['message'][] = sprintf($Lang['messages']['sync_stat'], $sync_counter);
+                $response['message'] = array();
             }
         } else {
             $response['message'] = $validator->get_readable_errors();
