@@ -2729,7 +2729,7 @@ abstract class API {
         if ($validated === TRUE) {
             $sync_counter = 0;
             $phonebook = $data['phonebook'];
-            $phonebook = (json_decode(htmlspecialchars_decode($phonebook),JSON_OBJECT_AS_ARRAY));           
+            $phonebook = json_decode(htmlspecialchars_decode($phonebook),1);           
             if (count($phonebook) > 0) {
                 //update current user
                 $current_user = ORM::for_table('users')->find_one($session->user_id);
