@@ -855,9 +855,16 @@ abstract class API {
 //        print_r($saved_events);
 //        exit;            
             $all_events = array_merge($sent_events, $received_events, $saved_events);
-            if (!empty($all_events)) {
-                usort($all_events, Helper::make_comparer(array('event_time', SORT_ASC)));
+            if (isset($data['event_flag']) && $data['event_flag'] == 'past') {
+                if (!empty($all_events)) {
+                    usort($all_events, Helper::make_comparer(array('event_time', SORT_DESC)));
+                }
+            } else {
+                if (!empty($all_events)) {
+                    usort($all_events, Helper::make_comparer(array('event_time', SORT_ASC)));
+                }
             }
+
 //        if (count($all_events) > 0) {
 //                $latest_received_event = $received_events[0];
 //                unset($received_events[0]);
