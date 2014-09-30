@@ -732,12 +732,11 @@ abstract class API {
                     ->select_many('e.*', 'ei.invitation_id', 'ei.arrival_time', 'ei.invitation_status', 'ei.sent_status')
                     ->join('events', array('ei.event_id', '=', 'e.event_id'), 'e')
                     ->where_raw('(ei.user_id = ?)', array($session->user_id))
-                    ->group_by_expr('ei.event_id,ei.user_id')
-                    ->order_by_desc('e.event_time');
+                    ->group_by_expr('ei.event_id,ei.user_id');                    
             if (isset($data['event_flag']) &&  $data['event_flag'] == 'past') {
-                $received_events = $received_events->where_lt('e.event_time', date('Y:m:d H:i:s'));
+                $received_events = $received_events->where_lt('e.event_time', date('Y:m:d H:i:s'))->order_by_desc('e.event_time');
             } else {
-                $received_events = $received_events->where_gt('e.event_time', date('Y:m:d H:i:s'));
+                $received_events = $received_events->where_gt('e.event_time', date('Y:m:d H:i:s'))->order_by_asc('e.event_time');
             }
             $received_events = $received_events->find_array();
 //        print_r($received_events);exit; 
@@ -754,12 +753,11 @@ abstract class API {
                     $received_events[$key]['separator'] = 'received';
                 }            
             $rec_sent_events = ORM::for_table('events')
-                    ->where_equal('event_creator', $session->user_id)
-                    ->order_by_desc('event_time');
+                    ->where_equal('event_creator', $session->user_id);
             if (isset($data['event_flag']) &&  $data['event_flag'] == 'past') {
-                $rec_sent_events = $rec_sent_events->where_lt('event_time', date('Y:m:d H:i:s'));
+                $rec_sent_events = $rec_sent_events->where_lt('event_time', date('Y:m:d H:i:s'))->order_by_desc('event_time');
             } else {
-                $rec_sent_events = $rec_sent_events->where_gt('event_time', date('Y:m:d H:i:s'));
+                $rec_sent_events = $rec_sent_events->where_gt('event_time', date('Y:m:d H:i:s'))->order_by_asc('event_time');
             }
             $rec_sent_events = $rec_sent_events->find_array();
             foreach ($rec_sent_events as $key => $rec_sent_event) {
