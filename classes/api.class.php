@@ -2730,9 +2730,11 @@ abstract class API {
             $sync_counter = 0;            
             $phonebook = $data['phonebook'];
             $phonebook = json_decode(htmlspecialchars_decode($phonebook));
+            print_r($phonebook);exit;
             foreach($phonebook as $key=>$ph){
                 $phonebook[$key] = (array)$ph;
             }
+            print_r($phonebook);exit;
             if (count($phonebook) > 0) {
                 //update current user
                 $current_user = ORM::for_table('users')->find_one($session->user_id);
