@@ -2727,9 +2727,12 @@ abstract class API {
         $data = $validator->filter($data, $filters);
         $normal_users = $application_user = $application_friends = array();
         if ($validated === TRUE) {
-            $sync_counter = 0;
+            $sync_counter = 0;            
             $phonebook = $data['phonebook'];
-            $phonebook = json_decode(htmlspecialchars_decode($phonebook),1);           
+            $phonebook = json_decode(htmlspecialchars_decode($phonebook));
+            foreach($phonebook as $key=>$ph){
+                $phonebook[$key] = (array)$ph;
+            }
             if (count($phonebook) > 0) {
                 //update current user
                 $current_user = ORM::for_table('users')->find_one($session->user_id);
