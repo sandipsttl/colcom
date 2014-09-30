@@ -732,29 +732,29 @@ abstract class API {
                     ->select_many('e.*', 'ei.invitation_id', 'ei.arrival_time', 'ei.invitation_status', 'ei.sent_status')
                     ->join('events', array('ei.event_id', '=', 'e.event_id'), 'e')
                     ->where_raw('(ei.user_id = ?)', array($session->user_id))
-                    ->group_by_expr('ei.event_id,ei.user_id');                    
-            if (isset($data['event_flag']) &&  $data['event_flag'] == 'past') {
+                    ->group_by_expr('ei.event_id,ei.user_id');
+            if (isset($data['event_flag']) && $data['event_flag'] == 'past') {
                 $received_events = $received_events->where_lt('e.event_time', date('Y:m:d H:i:s'))->order_by_desc('e.event_time');
             } else {
                 $received_events = $received_events->where_gt('e.event_time', date('Y:m:d H:i:s'))->order_by_asc('e.event_time');
             }
             $received_events = $received_events->find_array();
 //        print_r($received_events);exit; 
-            
-                foreach ($received_events as $key => $received_event) {
-                    if ($received_event['sent_status'] == Config::read('E_I_SENT')) {
-                        $this_invitation = ORM::for_table('event_invitations')->find_one($received_event['invitation_id']);
-                        $this_invitation->sent_status = Config::read('E_I_DELIVERED');
-                        $this_invitation->save();
-                    }
-                    unset($received_events[$key]['invitation_id']);
-                    $received_events[$key]['event_creator_name'] = API::get_username($received_events[$key]['event_creator']);
-                    $received_events[$key]['sent_status'] = API::get_readable_invitation_sent_status($received_event['sent_status']);
-                    $received_events[$key]['separator'] = 'received';
-                }            
+
+            foreach ($received_events as $key => $received_event) {
+                if ($received_event['sent_status'] == Config::read('E_I_SENT')) {
+                    $this_invitation = ORM::for_table('event_invitations')->find_one($received_event['invitation_id']);
+                    $this_invitation->sent_status = Config::read('E_I_DELIVERED');
+                    $this_invitation->save();
+                }
+                unset($received_events[$key]['invitation_id']);
+                $received_events[$key]['event_creator_name'] = API::get_username($received_events[$key]['event_creator']);
+                $received_events[$key]['sent_status'] = API::get_readable_invitation_sent_status($received_event['sent_status']);
+                $received_events[$key]['separator'] = 'received';
+            }
             $rec_sent_events = ORM::for_table('events')
                     ->where_equal('event_creator', $session->user_id);
-            if (isset($data['event_flag']) &&  $data['event_flag'] == 'past') {
+            if (isset($data['event_flag']) && $data['event_flag'] == 'past') {
                 $rec_sent_events = $rec_sent_events->where_lt('event_time', date('Y:m:d H:i:s'))->order_by_desc('event_time');
             } else {
                 $rec_sent_events = $rec_sent_events->where_gt('event_time', date('Y:m:d H:i:s'))->order_by_asc('event_time');
@@ -778,33 +778,30 @@ abstract class API {
                     $saved_events[$key]['total_members'] = $sent_invitations[0]['total_members'];
                     unset($rec_sent_events[$key]['event_status']);
                     $saved_events[$key]['separator'] = 'saved';
-                    
+
                     if ($sent_invitations[0]['screen_name']) {
                         $msg = ($sent_invitations[0]['total_members'] - 1) ? ' +' . ($sent_invitations[0]['total_members'] - 1) : '';
                         $saved_events[$key]['more_invited'] = $sent_invitations[0]['screen_name'] . $msg;
                     } elseif ($sent_invitations[0]['group_name']) {
                         $msg = ($sent_invitations[0]['total_groups'] - 1) ? ' +' . ($sent_invitations[0]['total_groups'] - 1) : '';
                         $saved_events[$key]['more_invited'] = $sent_invitations[0]['group_name'] . $msg;
-                    }
-                    else{
+                    } else {
                         $saved_events[$key]['more_invited'] = 'nobody';
                     }
-                    
                 } elseif (empty($sent_invitations[0]['total_groups']) && empty($sent_invitations[0]['total_members'])) {
                     $saved_events[$key] = $rec_sent_event;
                     unset($sent_invitations[$key]['event_status']);
                     $saved_events[$key]['separator'] = 'saved';
                     $saved_events[$key]['total_groups'] = $sent_invitations[0]['total_groups'];
                     $saved_events[$key]['total_members'] = $sent_invitations[0]['total_members'];
-                    
+
                     if ($sent_invitations[0]['screen_name']) {
                         $msg = ($sent_invitations[0]['total_members'] - 1) ? ' +' . ($sent_invitations[0]['total_members'] - 1) : '';
                         $saved_events[$key]['more_invited'] = $sent_invitations[0]['screen_name'] . $msg;
                     } elseif ($sent_invitations[0]['group_name']) {
                         $msg = ($sent_invitations[0]['total_groups'] - 1) ? ' +' . ($sent_invitations[0]['total_groups'] - 1) : '';
                         $saved_events[$key]['more_invited'] = $sent_invitations[0]['group_name'] . $msg;
-                    }
-                    else{
+                    } else {
                         $saved_events[$key]['more_invited'] = 'nobody';
                     }
                 } else {
@@ -817,8 +814,7 @@ abstract class API {
                     } elseif ($sent_invitations[0]['group_name']) {
                         $msg = ($sent_invitations[0]['total_groups'] - 1) ? ' +' . ($sent_invitations[0]['total_groups'] - 1) : '';
                         $sent_events[$key]['more_invited'] = $sent_invitations[0]['group_name'] . $msg;
-                    }
-                    else{
+                    } else {
                         $sent_events[$key]['more_invited'] = 'nobody';
                     }
                     unset($sent_invitations[$key]['event_status']);
@@ -2493,8 +2489,8 @@ abstract class API {
                 );
             } else {
                 $response = array(
-                    'status' => 'failure',
-                    'message' => 'Groups not found'
+                    'status' => 'success',
+                    'message' => $groups
                 );
             }
         }
