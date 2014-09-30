@@ -192,7 +192,8 @@ Config::write('FUNCTION_LIST', array(
     'get_group_list',
     'create_group',
     'get_profile_info',
-    'set_profile_info'
+    'set_profile_info',
+    'filter_friend_contacts'
         )
 );
 ?>
