@@ -2726,15 +2726,14 @@ abstract class API {
         $validated = $validator->validate($data, $rules);
         $data = $validator->filter($data, $filters);
         $normal_users = $application_user = $application_friends = array();
-        if ($validated === TRUE) {
+        if ($validated === TRUE) {						
             $sync_counter = 0;            
-            $phonebook = $data['phonebook'];
-            $phonebook = json_decode(htmlspecialchars_decode($phonebook));
-            print_r($phonebook);exit;
+            $phonebook = $data['phonebook'];						
+            $phonebook = json_decode(html_entity_decode($phonebook));            
             foreach($phonebook as $key=>$ph){
                 $phonebook[$key] = (array)$ph;
             }
-            print_r($phonebook);exit;
+            
             if (count($phonebook) > 0) {
                 //update current user
                 $current_user = ORM::for_table('users')->find_one($session->user_id);
@@ -2743,7 +2742,7 @@ abstract class API {
                 $phonebook_truncate_phone_number = Helper::array_value_recursive('phone_number_tr', $phonebook);
                 
                 //get users from phone contacts
-                $app_users = ORM::for_table('users')->select_many('user_id','name', 'email', 'phone_number', 'phone_number_tr')->where_in('phone_number_tr', $phonebook_truncate_phone_number)->order_by_asc('user_id')->find_array();
+                $app_users = ORM::for_table('users')->select_many('user_id','name', 'email', 'phone_number', 'phone_number_tr', 'avatar')->where_in('phone_number_tr', $phonebook_truncate_phone_number)->order_by_asc('user_id')->find_array();
                 $app_user_id_arr = Helper::array_value_recursive('user_id', $app_users);
                 $app_user_tr_phonenumber = Helper::array_value_recursive('phone_number_tr', $app_users);
                 
@@ -2778,13 +2777,17 @@ abstract class API {
                     }                    
                 }
                 
-                foreach($app_users as $app_user){
+                foreach($app_users as $app_user){                    
                     if(in_array($app_user['user_id'], $existing_friends)){
-                        $application_friends[$app_friend_incr] = $app_user;
+                        $application_friends[$app_friend_incr] = $app_user; 
+                        $application_friends[$app_friend_incr]['profile_image'] = (!empty($app_user['avatar'])) ? Config::read('BASE_URL') . '/avatar/' . $app_user['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
+                        unset($application_friends[$app_friend_incr]['avatar']);
                         $app_friend_incr++;
                     }
                     else{
                         $application_user[$app_user_incr] = $app_user;
+                        $application_user[$app_user_incr]['profile_image'] = (!empty($app_user['avatar'])) ? Config::read('BASE_URL') . '/avatar/' . $app_user['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
+                        unset($application_user[$app_user_incr]['avatar']);
                         $app_user_incr++;
                     }
                 }               
