@@ -2781,12 +2781,14 @@ abstract class API {
                     if(in_array($app_user['user_id'], $existing_friends)){
                         $application_friends[$app_friend_incr] = $app_user; 
                         $application_friends[$app_friend_incr]['profile_image'] = (!empty($app_user['avatar'])) ? Config::read('BASE_URL') . '/avatar/' . $app_user['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
+                        $application_friends[$app_friend_incr]['name'] = (!empty($app_user['name'])) ?  $app_user['name'] : '';
                         unset($application_friends[$app_friend_incr]['avatar']);
                         $app_friend_incr++;
                     }
                     else{
                         $application_user[$app_user_incr] = $app_user;
                         $application_user[$app_user_incr]['profile_image'] = (!empty($app_user['avatar'])) ? Config::read('BASE_URL') . '/avatar/' . $app_user['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
+                        $application_user[$app_user_incr]['name'] = (!empty($app_user['name'])) ?  $app_user['name'] : '';
                         unset($application_user[$app_user_incr]['avatar']);
                         $app_user_incr++;
                     }
