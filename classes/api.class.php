@@ -1043,7 +1043,7 @@ abstract class API {
                 $event_creator = ORM::for_table('users')->select_many('name', 'phone_number')->find_one($event['event_creator']);
                 $event['event_creator_name'] = $event_creator->name; //array_pop(ORM::for_table('users')->select('name')->find_one($event['event_creator'])->as_array());
                 $event['event_creator_phone_number'] = $event_creator->phone_number;
-                $joinee = $invitees = array();
+                $joinee = $invitees = $group_joinee = array();
                 $invitees = ORM::for_table('event_invitations')
                         ->table_alias('ei')
                         ->select_many('u.user_id', 'u.avatar', 'ei.arrival_time', 'ei.invitation_status', 'ei.sent_status')
@@ -1060,27 +1060,26 @@ abstract class API {
                 if (!empty($invitees)) {
                     foreach ($invitees as $key => $invitee) {
                         if (empty($invitee['group_id'])) {
-                            $joinee['members'][$mem_incr]['avatar'] = ($invitee['avatar'] != '') ? Config::read('BASE_URL') . '/avatar/' . $invitee['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
-                            $joinee['members'][$mem_incr]['user_id'] = (int) $invitee['user_id'];
-                            $joinee['members'][$mem_incr]['name'] = $invitee['screen_name'];
-                            $joinee['members'][$mem_incr]['invitation_status'] = API::get_readable_invitation_status($invitee['invitation_status']);
-                            $joinee['members'][$mem_incr]['sent_status'] = $sent_status = API::get_readable_invitation_sent_status($invitee['sent_status']);
+                            $joinee[$mem_incr]['avatar'] = ($invitee['avatar'] != '') ? Config::read('BASE_URL') . '/avatar/' . $invitee['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
+                            $joinee[$mem_incr]['user_id'] = (int) $invitee['user_id'];
+                            $joinee[$mem_incr]['name'] = $invitee['screen_name'];
+                            $joinee[$mem_incr]['invitation_status'] = API::get_readable_invitation_status($invitee['invitation_status']);
+                            $joinee[$mem_incr]['sent_status'] = $sent_status = API::get_readable_invitation_sent_status($invitee['sent_status']);
+                            $joinee[$mem_incr]['arrival_time'] = $invitee['arrival_time'];
                             $mem_incr++;
                         } else {
                             $group_id = (int) $invitee['group_id'];
-                            $joinee['groups'][$group_id]['group_id'] = (int) $invitee['group_id'];
-                            $joinee['groups'][$group_id]['group_name'] = $invitee['group_name'];
-                        }
-                        $joinee['arrival_time'] = $invitee['arrival_time'];
-                        $joinee['arrival_time'] = $invitee['arrival_time'];
-                        $joinee['arrival_time'] = $invitee['arrival_time'];
+                            $group_joinee[$group_id]['group_id'] = (int) $invitee['group_id'];
+                            $group_joinee[$group_id]['group_name'] = $invitee['group_name'];
+                        }                        
                     }
                 }
-                if (isset($joinee['groups']) && !empty($joinee['groups'])) {
-                    $joinee['groups'] = array_values($joinee['groups']);
+                if (!empty($group_joinee)) {
+                    $group_joinee = array_values($group_joinee);
                 }
 
                 $event['invitees'] = $joinee;
+                $event['group_invitees'] = $group_joinee;
                 $response['status'] = $Lang['messages']['success'];
                 $response['message'] = $event;
             } else {
