@@ -2496,18 +2496,26 @@ abstract class API {
             'status' => 'failure',
             'message' => $Lang['messages']['user_not_found']
         );
+        $pass_groups = array();
         if (isset($session['user_id']) && !empty($session['user_id'])) {
             $user_id = $session['user_id'];
             $groups = ORM::for_table('group')->select_many('id', 'name')->where_equal('creator_id', $user_id)->order_by_asc('name')->find_array();
+            $i = 0;
+            foreach($groups as $group){
+                $pass_groups[$i]['id'] = (int)$group['id'];
+                $pass_groups[$i]['name'] = $group['name'];
+                $i++;
+            }
+            
             if (!empty($groups)) {
                 $response = array(
                     'status' => 'success',
-                    'data' => $groups
+                    'data' => $pass_groups
                 );
             } else {
                 $response = array(
                     'status' => 'success',
-                    'message' => $groups
+                    'message' => $pass_groups
                 );
             }
         }
