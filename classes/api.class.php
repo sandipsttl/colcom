@@ -750,6 +750,11 @@ abstract class API {
                 unset($received_events[$key]['invitation_id']);
                 $received_events[$key]['event_creator_name'] = API::get_username($received_events[$key]['event_creator']);
                 $received_events[$key]['sent_status'] = API::get_readable_invitation_sent_status($received_event['sent_status']);
+                $received_events[$key]['event_id'] = (int) $received_event['event_id'];
+                $received_events[$key]['event_creator'] = (int) $received_event['event_creator'];
+                $received_events[$key]['event_type'] = (int) $received_event['event_type'];
+                $received_events[$key]['latitude'] = (float) $received_event['latitude'];
+                $received_events[$key]['longitude'] = (float) $received_event['longitude'];
                 $received_events[$key]['separator'] = 'received';
             }
             $rec_sent_events = ORM::for_table('events')
@@ -774,8 +779,13 @@ abstract class API {
                         ->find_array();
                 if ($rec_sent_events[$key]['event_status'] == 'saved') {
                     $saved_events[$key] = $rec_sent_event;
-                    $saved_events[$key]['total_groups'] = $sent_invitations[0]['total_groups'];
-                    $saved_events[$key]['total_members'] = $sent_invitations[0]['total_members'];
+                    $saved_events[$key]['event_id'] = (int) $rec_sent_event['event_id'];
+                    $saved_events[$key]['event_creator'] = (int) $rec_sent_event['event_creator'];
+                    $saved_events[$key]['event_type'] = (int) $rec_sent_event['event_type'];
+                    $saved_events[$key]['latitude'] = (float) $rec_sent_event['latitude'];
+                    $saved_events[$key]['longitude'] = (float) $rec_sent_event['longitude'];
+                    $saved_events[$key]['total_groups'] = (int)$sent_invitations[0]['total_groups'];
+                    $saved_events[$key]['total_members'] = (int)$sent_invitations[0]['total_members'];
                     unset($rec_sent_events[$key]['event_status']);
                     $saved_events[$key]['separator'] = 'saved';
 
@@ -790,10 +800,15 @@ abstract class API {
                     }
                 } elseif (empty($sent_invitations[0]['total_groups']) && empty($sent_invitations[0]['total_members'])) {
                     $saved_events[$key] = $rec_sent_event;
+                    $saved_events[$key]['event_id'] = (int) $rec_sent_event['event_id'];
+                    $saved_events[$key]['event_creator'] = (int) $rec_sent_event['event_creator'];
+                    $saved_events[$key]['event_type'] = (int) $rec_sent_event['event_type'];
+                    $saved_events[$key]['latitude'] = (float) $rec_sent_event['latitude'];
+                    $saved_events[$key]['longitude'] = (float) $rec_sent_event['longitude'];
                     unset($sent_invitations[$key]['event_status']);
                     $saved_events[$key]['separator'] = 'saved';
-                    $saved_events[$key]['total_groups'] = $sent_invitations[0]['total_groups'];
-                    $saved_events[$key]['total_members'] = $sent_invitations[0]['total_members'];
+                    $saved_events[$key]['total_groups'] = (int)$sent_invitations[0]['total_groups'];
+                    $saved_events[$key]['total_members'] = (int)$sent_invitations[0]['total_members'];
 
                     if ($sent_invitations[0]['screen_name']) {
                         $msg = ($sent_invitations[0]['total_members'] - 1) ? ' +' . ($sent_invitations[0]['total_members'] - 1) : '';
@@ -806,8 +821,13 @@ abstract class API {
                     }
                 } else {
                     $sent_events[$key] = $rec_sent_event;
-                    $sent_events[$key]['total_groups'] = $sent_invitations[0]['total_groups'];
-                    $sent_events[$key]['total_members'] = $sent_invitations[0]['total_members'];
+                    $sent_events[$key]['event_id'] = (int) $rec_sent_event['event_id'];
+                    $sent_events[$key]['event_creator'] = (int) $rec_sent_event['event_creator'];
+                    $sent_events[$key]['event_type'] = (int) $rec_sent_event['event_type'];
+                    $sent_events[$key]['total_groups'] = (int)$sent_invitations[0]['total_groups'];
+                    $sent_events[$key]['total_members'] = (int)$sent_invitations[0]['total_members'];
+                    $sent_events[$key]['latitude'] = (float) $rec_sent_event['latitude'];
+                    $sent_events[$key]['longitude'] = (float) $rec_sent_event['longitude'];
                     if ($sent_invitations[0]['screen_name']) {
                         $msg = ($sent_invitations[0]['total_members'] - 1) ? ' +' . ($sent_invitations[0]['total_members'] - 1) : '';
                         $sent_events[$key]['more_invited'] = $sent_invitations[0]['screen_name'] . $msg;
@@ -880,10 +900,10 @@ abstract class API {
 //        $all_events = array('sent' => $sent_events_sorted, 'received' => $received_events_sorted, 'saved' => $saved_events);
             $response['status'] = 'success';
             $response['message'] = $all_events;
-            return json_encode($response, JSON_NUMERIC_CHECK);
+            return json_encode($response);
         } else {
             $response['message'] = $validator->get_readable_errors();
-            return json_encode($response, JSON_NUMERIC_CHECK);
+            return json_encode($response);
         }
     }
 
