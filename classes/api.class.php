@@ -2515,26 +2515,49 @@ abstract class API {
             'status' => 'failure',
             'message' => $Lang['messages']['user_not_found']
         );
-        $pass_groups = array();
+        $final_groups = $pass_groups = array();
         if (isset($session['user_id']) && !empty($session['user_id'])) {
             $user_id = $session['user_id'];
-            $groups = ORM::for_table('group')->select_many('id', 'name')->where_equal('creator_id', $user_id)->order_by_asc('name')->find_array();
+//            $groups = ORM::for_table('group')
+//                    ->select_many('id', 'name')
+//                    ->where_equal('creator_id', $user_id)
+//                    ->order_by_asc('name')
+//                    ->find_array();
+            $groups = ORM::for_table('group')
+                        ->table_alias('g')
+                        ->select_expr('g.name','group_name')
+                        ->select_expr('u.name','member_name')
+                        ->select_many('g.id', 'u.user_id') 
+                        ->left_outer_join('group_members', array('g.id', '=', 'gm.group_id'), 'gm')
+                        ->left_outer_join('users', array('gm.user_id', '=', 'u.user_id'), 'u')
+                        ->where_equal('g.creator_id', $session['user_id'])
+                        ->find_array();            
+//            print_r($groups);
             $i = 0;
-            foreach ($groups as $group) {
-                $pass_groups[$i]['id'] = (int) $group['id'];
-                $pass_groups[$i]['name'] = $group['name'];
+            foreach ($groups as $group) {                
+                $pass_groups[$group['id']]['id'] = (int) $group['id'];
+                $pass_groups[$group['id']]['name'] = $group['group_name'];
+                $pass_groups[$group['id']]['members'][$i]['name'] = $group['member_name'];
+                $pass_groups[$group['id']]['members'][$i]['id'] = $group['user_id'];
                 $i++;
             }
-
-            if (!empty($groups)) {
+            foreach ($pass_groups as $key => $pass_group){
+                $pass_groups[$key]['members'] = array_values($pass_groups[$key]['members']);
+            }
+            $i = 0;
+            foreach ($pass_groups as $key => $pass_group){
+                $final_groups[$i] = $pass_group;
+                $i++;
+            }            
+            if (!empty($pass_groups)) {
                 $response = array(
                     'status' => 'success',
-                    'data' => $pass_groups
+                    'data' => $final_groups
                 );
             } else {
                 $response = array(
                     'status' => 'success',
-                    'message' => $pass_groups
+                    'message' => $final_groups
                 );
             }
         }
