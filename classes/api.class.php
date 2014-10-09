@@ -2527,7 +2527,7 @@ abstract class API {
                         ->table_alias('g')
                         ->select_expr('g.name','group_name')
                         ->select_expr('u.name','member_name')
-                        ->select_many('g.id', 'u.user_id') 
+                        ->select_many('g.id', 'u.user_id', 'u.avatar') 
                         ->left_outer_join('group_members', array('g.id', '=', 'gm.group_id'), 'gm')
                         ->left_outer_join('users', array('gm.user_id', '=', 'u.user_id'), 'u')
                         ->where_equal('g.creator_id', $session['user_id'])
@@ -2539,6 +2539,7 @@ abstract class API {
                 $pass_groups[$group['id']]['name'] = $group['group_name'];
                 $pass_groups[$group['id']]['members'][$i]['name'] = $group['member_name'];
                 $pass_groups[$group['id']]['members'][$i]['id'] = $group['user_id'];
+                $pass_groups[$group['id']]['members'][$i]['avatar'] = ($group['avatar'] != '') ? Config::read('BASE_URL') . '/avatar/' . $group['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';                
                 $i++;
             }
             foreach ($pass_groups as $key => $pass_group){
