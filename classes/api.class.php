@@ -421,7 +421,6 @@ abstract class API {
             'latitude' => 'required|float',
             'longitude' => 'required|float',
             'event_id' => 'integer',
-            'comment' => 'required|min_len,6',
             'event_title' => 'required|min_len,2',
             'event_status' => 'required'
         );
@@ -784,8 +783,8 @@ abstract class API {
                     $saved_events[$key]['event_type'] = (int) $rec_sent_event['event_type'];
                     $saved_events[$key]['latitude'] = (float) $rec_sent_event['latitude'];
                     $saved_events[$key]['longitude'] = (float) $rec_sent_event['longitude'];
-                    $saved_events[$key]['total_groups'] = (int)$sent_invitations[0]['total_groups'];
-                    $saved_events[$key]['total_members'] = (int)$sent_invitations[0]['total_members'];
+                    $saved_events[$key]['total_groups'] = (int) $sent_invitations[0]['total_groups'];
+                    $saved_events[$key]['total_members'] = (int) $sent_invitations[0]['total_members'];
                     unset($rec_sent_events[$key]['event_status']);
                     $saved_events[$key]['separator'] = 'saved';
 
@@ -807,8 +806,8 @@ abstract class API {
                     $saved_events[$key]['longitude'] = (float) $rec_sent_event['longitude'];
                     unset($sent_invitations[$key]['event_status']);
                     $saved_events[$key]['separator'] = 'saved';
-                    $saved_events[$key]['total_groups'] = (int)$sent_invitations[0]['total_groups'];
-                    $saved_events[$key]['total_members'] = (int)$sent_invitations[0]['total_members'];
+                    $saved_events[$key]['total_groups'] = (int) $sent_invitations[0]['total_groups'];
+                    $saved_events[$key]['total_members'] = (int) $sent_invitations[0]['total_members'];
 
                     if ($sent_invitations[0]['screen_name']) {
                         $msg = ($sent_invitations[0]['total_members'] - 1) ? ' +' . ($sent_invitations[0]['total_members'] - 1) : '';
@@ -824,8 +823,8 @@ abstract class API {
                     $sent_events[$key]['event_id'] = (int) $rec_sent_event['event_id'];
                     $sent_events[$key]['event_creator'] = (int) $rec_sent_event['event_creator'];
                     $sent_events[$key]['event_type'] = (int) $rec_sent_event['event_type'];
-                    $sent_events[$key]['total_groups'] = (int)$sent_invitations[0]['total_groups'];
-                    $sent_events[$key]['total_members'] = (int)$sent_invitations[0]['total_members'];
+                    $sent_events[$key]['total_groups'] = (int) $sent_invitations[0]['total_groups'];
+                    $sent_events[$key]['total_members'] = (int) $sent_invitations[0]['total_members'];
                     $sent_events[$key]['latitude'] = (float) $rec_sent_event['latitude'];
                     $sent_events[$key]['longitude'] = (float) $rec_sent_event['longitude'];
                     if ($sent_invitations[0]['screen_name']) {
@@ -1091,7 +1090,7 @@ abstract class API {
                             $group_id = (int) $invitee['group_id'];
                             $group_joinee[$group_id]['group_id'] = (int) $invitee['group_id'];
                             $group_joinee[$group_id]['group_name'] = $invitee['group_name'];
-                        }                        
+                        }
                     }
                 }
                 if (!empty($group_joinee)) {
@@ -2521,12 +2520,12 @@ abstract class API {
             $user_id = $session['user_id'];
             $groups = ORM::for_table('group')->select_many('id', 'name')->where_equal('creator_id', $user_id)->order_by_asc('name')->find_array();
             $i = 0;
-            foreach($groups as $group){
-                $pass_groups[$i]['id'] = (int)$group['id'];
+            foreach ($groups as $group) {
+                $pass_groups[$i]['id'] = (int) $group['id'];
                 $pass_groups[$i]['name'] = $group['name'];
                 $i++;
             }
-            
+
             if (!empty($groups)) {
                 $response = array(
                     'status' => 'success',
@@ -2753,26 +2752,26 @@ abstract class API {
         $validated = $validator->validate($data, $rules);
         $data = $validator->filter($data, $filters);
         $normal_users = $application_user = $application_friends = array();
-        if ($validated === TRUE) {						
-            $sync_counter = 0;            
-            $phonebook = $data['phonebook'];						
-            $phonebook = json_decode(html_entity_decode($phonebook));            
-            foreach($phonebook as $key=>$ph){
-                $phonebook[$key] = (array)$ph;
+        if ($validated === TRUE) {
+            $sync_counter = 0;
+            $phonebook = $data['phonebook'];
+            $phonebook = json_decode(html_entity_decode($phonebook));
+            foreach ($phonebook as $key => $ph) {
+                $phonebook[$key] = (array) $ph;
             }
-            
+
             if (count($phonebook) > 0) {
                 //update current user
                 $current_user = ORM::for_table('users')->find_one($session->user_id);
                 $current_user->phonebook_contact_count = count($phonebook);
                 $current_user->save();
                 $phonebook_truncate_phone_number = Helper::array_value_recursive('phone_number_tr', $phonebook);
-                
+
                 //get users from phone contacts
-                $app_users = ORM::for_table('users')->select_many('user_id','name', 'email', 'phone_number', 'phone_number_tr', 'avatar')->where_in('phone_number_tr', $phonebook_truncate_phone_number)->order_by_asc('user_id')->find_array();
+                $app_users = ORM::for_table('users')->select_many('user_id', 'name', 'email', 'phone_number', 'phone_number_tr', 'avatar')->where_in('phone_number_tr', $phonebook_truncate_phone_number)->order_by_asc('user_id')->find_array();
                 $app_user_id_arr = Helper::array_value_recursive('user_id', $app_users);
                 $app_user_tr_phonenumber = Helper::array_value_recursive('phone_number_tr', $app_users);
-                
+
                 //get existing friends
                 $existing_friends = array();
                 $sql = "( SELECT receiver_id AS user_id
@@ -2793,33 +2792,32 @@ abstract class API {
                     $existing_friends = Helper::array_value_recursive('user_id', $existing_friends);
                     $existing_friends[] = $session->user_id;
                 }
-                
+
                 //get friends from phone but not friends in app yet
                 $friends_from_phonebook = array_diff($app_user_id_arr, $existing_friends);
                 $normal_incr = $app_user_incr = $app_friend_incr = 0;
-                foreach($phonebook as $phonebook_user){
-                    if(!in_array($phonebook_user['phone_number_tr'], $app_user_tr_phonenumber)){
+                foreach ($phonebook as $phonebook_user) {
+                    if (!in_array($phonebook_user['phone_number_tr'], $app_user_tr_phonenumber)) {
                         $normal_users[$normal_incr] = $phonebook_user;
                         $normal_incr++;
-                    }                    
+                    }
                 }
-                
-                foreach($app_users as $app_user){                    
-                    if(in_array($app_user['user_id'], $existing_friends)){
-                        $application_friends[$app_friend_incr] = $app_user; 
+
+                foreach ($app_users as $app_user) {
+                    if (in_array($app_user['user_id'], $existing_friends)) {
+                        $application_friends[$app_friend_incr] = $app_user;
                         $application_friends[$app_friend_incr]['profile_image'] = (!empty($app_user['avatar'])) ? Config::read('BASE_URL') . '/avatar/' . $app_user['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
-                        $application_friends[$app_friend_incr]['name'] = (!empty($app_user['name'])) ?  $app_user['name'] : '';
+                        $application_friends[$app_friend_incr]['name'] = (!empty($app_user['name'])) ? $app_user['name'] : '';
                         unset($application_friends[$app_friend_incr]['avatar']);
                         $app_friend_incr++;
-                    }
-                    else{
+                    } else {
                         $application_user[$app_user_incr] = $app_user;
                         $application_user[$app_user_incr]['profile_image'] = (!empty($app_user['avatar'])) ? Config::read('BASE_URL') . '/avatar/' . $app_user['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
-                        $application_user[$app_user_incr]['name'] = (!empty($app_user['name'])) ?  $app_user['name'] : '';
+                        $application_user[$app_user_incr]['name'] = (!empty($app_user['name'])) ? $app_user['name'] : '';
                         unset($application_user[$app_user_incr]['avatar']);
                         $app_user_incr++;
                     }
-                }               
+                }
                 $contact_list = array('normal_user' => $normal_users, 'app_user' => $application_user, 'app_friend' => $application_friends);
                 $response['message'] = $contact_list;
                 //send frinds requests
@@ -2843,6 +2841,127 @@ abstract class API {
             $response['message'] = $validator->get_readable_errors();
         }
         return json_encode($response, JSON_NUMERIC_CHECK);
+    }
+
+    /**
+     * API::edit_group()
+     *
+     * @return
+     */
+    public static function edit_group() {
+        global $Lang;
+        $session = Session::authenticate();
+        $response = array(
+            'status' => $Lang['messages']['failure'],
+            'message' => ''
+        );
+        $rules = array(
+            'name' => 'required|max_len,100|min_len,2',
+            'group_id' => 'required|integer'
+        );
+        $filters = array(
+            'name' => 'trim|sanitize_string',
+            'members' => 'trim|json_decode',
+            'group_id' => 'trim'
+        );
+        $validator = new GUMP();
+        $data = $validator->sanitize($_REQUEST);
+        $data = $validator->filter($data, $filters);
+        $validated = $validator->validate($data, $rules);
+        if ($validated === TRUE) {
+            $existing_group = ORM::for_table('group')->where_equal('name', $data['name'])->where_not_equal('id', $data['group_id'])->where_equal('creator_id', $session['user_id'])->count();
+            if ($existing_group > 0) {
+                $response['message'][] = $Lang['messages']['group_exists'];
+                return json_encode($response, JSON_NUMERIC_CHECK);
+            } else {
+                $group = ORM::for_table('group')->where_equal('id', $data['group_id'])->where_equal('creator_id', $session['user_id'])->find_one();
+                if ($group) {
+                    $group->name = $data['name'];
+                    $group->updated_at = date("Y-m-d H:i:s", time());
+                    if ($group->save()) {
+                        $count_added = 0;
+                        $count_deleted = 0;
+                        $selected_members = ($data['members']) ? $data['members'] : array();
+                        $existing_group_members = ORM::for_table('group_members')->select('user_id')->where_equal('group_id', $data['group_id'])->find_array();
+                        $existing_group_members = ($existing_group_members) ? Helper::array_value_recursive('user_id', $existing_group_members) : array();
+
+                        $to_be_removed_members = array_diff($existing_group_members, $selected_members);
+                        if (!empty($to_be_removed_members)) {
+                            ORM::for_table('group_members')->where_equal('group_id', $data['group_id'])->where_in('user_id', $to_be_removed_members)->delete_many();
+                            $count_deleted = count($to_be_removed_members);
+                        }
+
+                        $to_be_inserted_members = array_diff($selected_members, $existing_group_members);
+                        if (!empty($to_be_inserted_members)) {
+                            foreach ($to_be_inserted_members as $to_be_inserted_member) {
+                                $group_members = ORM::for_table('group_members')->create();
+                                $group_members->group_id = $group->id;
+                                $group_members->user_id = $to_be_inserted_member;
+                                $group_members->created_at = date("Y-m-d H:i:s", time());
+                                if ($group_members->save()) {
+                                    $count_added++;
+                                }
+                            }
+                        }
+
+                        $response['status'] = $Lang['messages']['success'];
+                        $response['message'] = $Lang['messages']['group_update_success'];
+
+                        return json_encode($response, JSON_NUMERIC_CHECK);
+                    } else {
+                        $response['message'][] = $Lang['messages']['save_error'];
+                        return json_encode($response, JSON_NUMERIC_CHECK);
+                    }
+                } else {
+                    $response['message'][] = $Lang['messages']['group_not_found'];
+                    return json_encode($response, JSON_NUMERIC_CHECK);
+                }
+            }
+            //}
+        } else {
+            $response['message'] = $validator->get_readable_errors();
+            return json_encode($response, JSON_NUMERIC_CHECK);
+        }
+    }
+
+    /**
+     * API::delete_group()
+     *
+     * @return
+     */
+    public static function delete_group() {
+        global $Lang;
+        $session = Session::authenticate();
+        $response = array(
+            'status' => $Lang['messages']['failure'],
+            'message' => ''
+        );
+        $rules = array(
+            'group_id' => 'required|integer'
+        );
+        $filters = array(
+            'group_id' => 'trim'
+        );
+        $validator = new GUMP();
+        $data = $validator->sanitize($_REQUEST);
+        $data = $validator->filter($data, $filters);
+        $validated = $validator->validate($data, $rules);
+        if ($validated === TRUE) {
+            $group = ORM::for_table('group')->where_equal('id', $data['group_id'])->where_equal('creator_id', $session['user_id'])->find_one();
+            if ($group) {                
+                ORM::for_table('group_members')->where_equal('group_id', $data['group_id'])->delete_many();
+                $group->delete();
+                $response['status'] = $Lang['messages']['success'];
+                $response['message'] = $Lang['messages']['group_delete_success'];
+                return json_encode($response, JSON_NUMERIC_CHECK);
+            } else {
+                $response['message'][] = $Lang['messages']['group_not_found'];
+                return json_encode($response, JSON_NUMERIC_CHECK);
+            }
+        } else {
+            $response['message'] = $validator->get_readable_errors();
+            return json_encode($response, JSON_NUMERIC_CHECK);
+        }
     }
 
 }
