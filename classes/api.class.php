@@ -2986,7 +2986,58 @@ abstract class API {
             return json_encode($response, JSON_NUMERIC_CHECK);
         }
     }
-
+    /**
+     * API::get_received_events_notification()
+     *
+     * @return
+     */
+    public static function get_received_events_notification() {
+        global $Lang;
+        $session = Session::authenticate();
+        $response = array(
+            'status' => $Lang['messages']['failure'],
+            'message' => ''
+        );
+        $rules = array();
+        $filters = array(
+            'event_flag' => 'trim|sanitize_string',
+        );
+        $validator = new GUMP();
+        $data = $validator->sanitize($_REQUEST);
+        $data = $validator->filter($data, $filters);
+        $validated = $validator->validate($data, $rules);
+        if ($validated === TRUE) {
+            $received_events = array();
+            $received_events = ORM::for_table('event_invitations')
+                    ->table_alias('ei')
+                    //->select_many('e.*','ei.*')
+                    ->select_many('e.*', 'ei.invitation_id', 'ei.arrival_time', 'ei.invitation_status', 'ei.sent_status')
+                    ->join('events', array('ei.event_id', '=', 'e.event_id'), 'e')
+                    ->where_raw('(ei.user_id = ?)', array($session->user_id))
+                    ->group_by_expr('ei.event_id,ei.user_id')
+                    ->where_equal('invitation_status', 1)
+                    ->where_gt('e.event_time', date('Y:m:d H:i:s'))
+                    ->order_by_asc('e.event_time')
+                    ->find_array();
+//            print_r($received_events);exit;
+            foreach ($received_events as $key => $received_event) {
+                unset($received_events[$key]['invitation_id']);
+                $received_events[$key]['event_creator_name'] = API::get_username($received_events[$key]['event_creator']);
+                $received_events[$key]['sent_status'] = API::get_readable_invitation_sent_status($received_event['sent_status']);
+                $received_events[$key]['event_id'] = (int) $received_event['event_id'];
+                $received_events[$key]['event_creator'] = (int) $received_event['event_creator'];
+                $received_events[$key]['event_type'] = (int) $received_event['event_type'];
+                $received_events[$key]['latitude'] = (float) $received_event['latitude'];
+                $received_events[$key]['longitude'] = (float) $received_event['longitude'];                
+            }            
+            $response['status'] = 'success';
+            $response['message'] = $received_events;
+            return json_encode($response);
+        } else {
+            $response['message'] = $validator->get_readable_errors();
+            return json_encode($response);
+        }        
+    }
 }
 
 ?>
