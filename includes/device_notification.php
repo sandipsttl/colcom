@@ -30,8 +30,8 @@ function sendMessageToIPhone($deviceTokens, $msg = '', $notificationType = 0) {
     $ctx = stream_context_create();
     stream_context_set_option($ctx, 'ssl', 'local_cert', dirname(__file__) . DIRECTORY_SEPARATOR . 'colcom.pem');
     stream_context_set_option($ctx, 'ssl', 'passphrase', $passphrase);
-    $fp = stream_socket_client('ssl://gateway.push.apple.com:2195', $err, $errstr, 2, STREAM_CLIENT_CONNECT | STREAM_CLIENT_PERSISTENT, $ctx);
-//    $fp = stream_socket_client('ssl://gateway.sandbox.push.apple.com:2195', $err, $errstr, 2, STREAM_CLIENT_CONNECT | STREAM_CLIENT_PERSISTENT, $ctx);
+//    $fp = stream_socket_client('ssl://gateway.push.apple.com:2195', $err, $errstr, 2, STREAM_CLIENT_CONNECT | STREAM_CLIENT_PERSISTENT, $ctx);
+    $fp = stream_socket_client('ssl://gateway.sandbox.push.apple.com:2195', $err, $errstr, 2, STREAM_CLIENT_CONNECT | STREAM_CLIENT_PERSISTENT, $ctx);
     if (!$fp)
         exit("Failed to connect: $err $errstr" . PHP_EOL);
     $body['aps'] = array('alert' => $message, 'url' => '', 'sound' => 'default', 'badge' => 1, 't' => $notificationType);
