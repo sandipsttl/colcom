@@ -8,3 +8,5 @@ ALTER TABLE `users` CHANGE `has_reminder` `has_reminder` TINYINT(1) NOT NULL DEF
 ALTER TABLE `event_invitations` ADD `group_id` INT(11) NULL AFTER `user_id`;
 
 ALTER TABLE `events` ADD `photo` VARCHAR(255) NULL AFTER `comment`;
+
+ALTER TABLE `events` ADD `event_status` ENUM('saved','sent') NOT NULL DEFAULT 'saved' AFTER `photo`;

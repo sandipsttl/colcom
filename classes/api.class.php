@@ -1310,6 +1310,7 @@ abstract class API {
         $data = $validator->sanitize($_REQUEST);
         $validated = $validator->validate($data, $rules);
         $data = $validator->filter($data, $filters);
+        $arr_user_notification = array();
         if ($validated === TRUE) {
             $result = array('sent' => array(), 'not_sent' => array());
             $counter = array('sent' => 0, 'not_sent' => 0);
@@ -1332,6 +1333,7 @@ abstract class API {
                             $friend_request->receiver_id = $user_id2;
                             $friend_request->status = Config::read('F_PENDING');
                             if ($friend_request->save()) {
+                                $arr_user_notification[] = (int)$user_id2;
                                 $result['sent'][] = $user;
                                 $counter['sent'] ++;
                             } else {
@@ -1344,6 +1346,10 @@ abstract class API {
                     $result['not_sent'][] = $user;
                     $counter['not_sent'] ++;
                 }
+            }
+            if(!empty($arr_user_notification)){  
+                $params = array('user_id' => json_encode($arr_user_notification), 'message' => 'You are my friend');
+                $res = API::friend_request_notification($params);                
             }
             $response['status'] = $Lang['messages']['success'];
             $response['message'] = array('counter' => $counter, 'user_id_list' => $result);
@@ -1975,6 +1981,86 @@ abstract class API {
                 }
             }
         } else {
+            $response['message'] = $validator->get_readable_errors();
+        }
+        return json_encode($response);
+    }
+    /**
+     * API::friend_request_notification()
+     *
+     * @return
+     */
+    public static function friend_request_notification($params = false) {        
+        global $Lang;
+        $pass_params = $params ? $params : $_REQUEST;
+        if (!$params) {
+            $session = Session::authenticate();
+        }
+        require_once(Config::read('BASE_PATH') . '/includes/device_notification.php');
+        $response = array(
+            'status' => $Lang['messages']['failure'],            
+        );
+        $rules = array(
+            'message' => 'required',
+            'user_id' => 'required'            
+        );
+        $filters = array(
+            'message' => 'trim|sanitize_string',
+            'user_id' => 'trim|json_decode',
+        );
+//        print_r($pass_params);exit;
+        $validator = new GUMP();
+        $data = $validator->sanitize($pass_params);
+        $validated = $validator->validate($data, $rules);
+        $data = $validator->filter($data, $filters);
+        if ($validated === TRUE) {
+            $users = $data['user_id'];
+            
+            //$users = Helper::array_value_recursive('user_id',$users);
+            if (!empty($users)) {
+                $devices = ORM::for_table('users')->where_in('user_id', $users)->find_array();
+                if (!empty($devices)) {
+                    $ios_devices = array_filter($devices, function($v) {
+                        return strcasecmp(strtoupper($v['client_type']), "IPHONE") == 0;
+                    });
+                    $android_devices = array_filter($devices, function($v) {
+                        return strcasecmp(strtoupper($v['client_type']), "ANDROID") == 0;
+                    });                   
+                    if (!empty($ios_devices)) {
+                        $chunk_ios_devices = array_chunk($ios_devices, 25);
+                        foreach ($chunk_ios_devices as $chunk_ios_devices) {
+                            $device_tokens = Helper::array_value_recursive('push_token', $chunk_ios_devices);
+                            if(!empty($device_tokens)){
+                                $result = sendMessageToIPhone($device_tokens, $data['message']);
+                            }                            
+                        }
+                        $response['status'] = $Lang['messages']['success'];
+                        $response['message'] = $Lang['messages']['noti_send_success'];
+                    }
+                    if (!empty($android_devices)) {
+                        $result = array();
+                        $chunk_android_devices = array_chunk($android_devices, 25);
+                        foreach ($chunk_android_devices as $chunk_android_device) {
+                            $message = new stdClass();
+                            $message->aps = new stdClass();
+                            $message->aps->alert = $data['message'];
+                            $message->aps->sound = "default"; 
+                            $message->aps->t = 3;
+                            $message = json_encode($message);
+                            $device_tokens = Helper::array_value_recursive('push_token', $chunk_android_device);
+                            $result = sendMessageToAndroidPhone(Config::read('ANDROID_PUSH_API_KEY'), $device_tokens, $message);
+                            $result = json_decode($result, true);
+                        }
+                        if (isset($result['success']) && (int) $result['success'] > 0) {
+                            $response['status'] = $Lang['messages']['success'];
+                            $response['message'] = $Lang['messages']['noti_send_success'];
+                        } elseif (isset($result['failure'])) {
+                            $response['message'] = $Lang['messages']['noti_send_failure'];
+                        }
+                    }
+                }
+            }
+        } else {   
             $response['message'] = $validator->get_readable_errors();
         }
         return json_encode($response);
