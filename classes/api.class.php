@@ -1347,8 +1347,10 @@ abstract class API {
                     $counter['not_sent'] ++;
                 }
             }
-            if(!empty($arr_user_notification)){  
-                $params = array('user_id' => json_encode($arr_user_notification), 'message' => 'You are my friend');
+            if(!empty($arr_user_notification)){ 
+                $sender = ORM::for_table('users')->where_equal('user_id',$session->user_id)->find_one();                
+                $message = (!empty(trim($sender->name))) ? ucfirst($sender->name).' Wants to add as a friends.' : $sender->email.' Wants to add as a friends.';
+                $params = array('user_id' => json_encode($arr_user_notification), 'message' => $message);
                 $res = API::friend_request_notification($params);                
             }
             $response['status'] = $Lang['messages']['success'];
