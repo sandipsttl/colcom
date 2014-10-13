@@ -2524,32 +2524,32 @@ abstract class API {
 //                    ->order_by_asc('name')
 //                    ->find_array();
             $groups = ORM::for_table('group')
-                        ->table_alias('g')
-                        ->select_expr('g.name','group_name')
-                        ->select_expr('u.name','member_name')
-                        ->select_many('g.id', 'u.user_id', 'u.avatar') 
-                        ->left_outer_join('group_members', array('g.id', '=', 'gm.group_id'), 'gm')
-                        ->left_outer_join('users', array('gm.user_id', '=', 'u.user_id'), 'u')
-                        ->where_equal('g.creator_id', $session['user_id'])
-                        ->find_array();            
+                    ->table_alias('g')
+                    ->select_expr('g.name', 'group_name')
+                    ->select_expr('u.name', 'member_name')
+                    ->select_many('g.id', 'u.user_id', 'u.avatar')
+                    ->left_outer_join('group_members', array('g.id', '=', 'gm.group_id'), 'gm')
+                    ->left_outer_join('users', array('gm.user_id', '=', 'u.user_id'), 'u')
+                    ->where_equal('g.creator_id', $session['user_id'])
+                    ->find_array();
 //            print_r($groups);
             $i = 0;
-            foreach ($groups as $group) {                
+            foreach ($groups as $group) {
                 $pass_groups[$group['id']]['id'] = (int) $group['id'];
                 $pass_groups[$group['id']]['name'] = $group['group_name'];
                 $pass_groups[$group['id']]['members'][$i]['name'] = $group['member_name'];
                 $pass_groups[$group['id']]['members'][$i]['id'] = $group['user_id'];
-                $pass_groups[$group['id']]['members'][$i]['avatar'] = ($group['avatar'] != '') ? Config::read('BASE_URL') . '/avatar/' . $group['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';                
+                $pass_groups[$group['id']]['members'][$i]['avatar'] = ($group['avatar'] != '') ? Config::read('BASE_URL') . '/avatar/' . $group['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
                 $i++;
             }
-            foreach ($pass_groups as $key => $pass_group){
+            foreach ($pass_groups as $key => $pass_group) {
                 $pass_groups[$key]['members'] = array_values($pass_groups[$key]['members']);
             }
             $i = 0;
-            foreach ($pass_groups as $key => $pass_group){
+            foreach ($pass_groups as $key => $pass_group) {
                 $final_groups[$i] = $pass_group;
                 $i++;
-            }            
+            }
             if (!empty($pass_groups)) {
                 $response = array(
                     'status' => 'success',
@@ -2582,22 +2582,24 @@ abstract class API {
         );
         $rules = array(
             'name' => 'required|max_len,100|min_len,2',
-            'members' => 'required',
+            'members' => 'required'
         );
         $filters = array(
             'name' => 'trim|sanitize_string',
-            'members' => 'trim',
+            'members' => 'trim|json_decode'
         );
         $validator = new GUMP();
         $data = $validator->sanitize($_REQUEST);
-        $data = $validator->filter($data, $filters);
         $validated = $validator->validate($data, $rules);
+        $data = $validator->filter($data, $filters);
+
         if ($validated === TRUE) {
             $existing_group = ORM::for_table('group')->where_equal('name', $data['name'])->where_equal('creator_id', $session['user_id'])->count();
             if ($existing_group > 0) {
                 $response['message'][] = $Lang['messages']['group_exists'];
                 return json_encode($response, JSON_NUMERIC_CHECK);
             } else {
+
                 $group = ORM::for_table('group')->create();
                 $group->name = $data['name'];
                 $group->creator_id = $session['user_id'];
@@ -2606,27 +2608,22 @@ abstract class API {
 
                     $count_added = 0;
                     $count_not_added = 0;
-                    $members = explode(',', $data['members']);
+                    $members = $data['members'];
                     if (count($members) > 0) {
                         foreach ($members as $user_id) {
                             if ($user_id == $session['user_id']) {
                                 $response['message'][] = $Lang['messages']['self_group_member'];
                                 return json_encode($response, JSON_NUMERIC_CHECK);
                             }
-                            $existing_member = ORM::for_table('group_members')->where_equal('user_id', $user_id)->count();
-                            if ($existing_member) {
-                                $count_not_added++;
-                            } else {
-                                $group_members = ORM::for_table('group_members')->create();
-                                $group_members->group_id = $group->id;
-                                $group_members->user_id = $user_id;
-                                $group_members->created_at = date("Y-m-d H:i:s", time());
-                                if ($group_members->save()) {
-                                    $count_added++;
-                                }
-                                $response['status'] = 'success';
-                                $response['message'] = array('added' => $count_added, 'not_added' => $count_not_added);
+                            $group_members = ORM::for_table('group_members')->create();
+                            $group_members->group_id = $group->id;
+                            $group_members->user_id = $user_id;
+                            $group_members->created_at = date("Y-m-d H:i:s", time());
+                            if ($group_members->save()) {
+                                $count_added++;
                             }
+                            $response['status'] = 'success';
+                            $response['message'] = array('added' => $count_added, 'not_added' => $count_not_added);
                         }
                     } else {
                         $response['message'][] = $Lang['messages']['param_empty'];
@@ -2972,7 +2969,7 @@ abstract class API {
         $validated = $validator->validate($data, $rules);
         if ($validated === TRUE) {
             $group = ORM::for_table('group')->where_equal('id', $data['group_id'])->where_equal('creator_id', $session['user_id'])->find_one();
-            if ($group) {                
+            if ($group) {
                 ORM::for_table('group_members')->where_equal('group_id', $data['group_id'])->delete_many();
                 $group->delete();
                 $response['status'] = $Lang['messages']['success'];
@@ -2987,6 +2984,7 @@ abstract class API {
             return json_encode($response, JSON_NUMERIC_CHECK);
         }
     }
+
     /**
      * API::get_received_events_notification()
      *
@@ -3029,16 +3027,17 @@ abstract class API {
                 $received_events[$key]['event_creator'] = (int) $received_event['event_creator'];
                 $received_events[$key]['event_type'] = (int) $received_event['event_type'];
                 $received_events[$key]['latitude'] = (float) $received_event['latitude'];
-                $received_events[$key]['longitude'] = (float) $received_event['longitude'];                
-            }            
+                $received_events[$key]['longitude'] = (float) $received_event['longitude'];
+            }
             $response['status'] = 'success';
             $response['message'] = $received_events;
             return json_encode($response);
         } else {
             $response['message'] = $validator->get_readable_errors();
             return json_encode($response);
-        }        
+        }
     }
+
 }
 
 ?>
