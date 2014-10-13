@@ -1349,7 +1349,7 @@ abstract class API {
             }
             if(!empty($arr_user_notification)){ 
                 $sender = ORM::for_table('users')->where_equal('user_id',$session->user_id)->find_one();                
-                $message = (!empty(trim($sender->name))) ? ucfirst($sender->name).' Wants to add as a friends.' : $sender->email.' Wants to add as a friends.';
+                $message = (!empty(trim($sender->name))) ? ucfirst($sender->name).' Wants to add you as a friends.' : $sender->email.' Wants to add you as a friends.';
                 $params = array('user_id' => json_encode($arr_user_notification), 'message' => $message);
                 $res = API::friend_request_notification($params);                
             }
