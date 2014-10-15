@@ -1620,6 +1620,7 @@ abstract class API {
                 foreach ($friends as $key => $friend) {
                     $friend['friendship_status'] = API::get_readable_friendship_request_status($friend['friendship_status']);
                     $friend_list[$key]['avatar'] = ($friend_list[$key]['avatar'] != '') ? Config::read('BASE_URL') . '/avatar/' . $friend_list[$key]['avatar'] : Config::read('BASE_URL') . '/avatar/default.jpg';
+                    $friend_list[$key]['name'] = ($friend_list[$key]['name']) ? $friend_list[$key]['name'] : '';
                     $friend_list[$key] = array_merge($friend_list[$key], $friend);
                 }
             }
