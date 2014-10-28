@@ -2792,7 +2792,7 @@ abstract class API {
         $filters = array(
             'email' => 'trim|sanitize_email',
             'phone_number' => 'trim|sanitize_string',
-            'name' => 'trim|urldecode|sanitize_string',
+            'name' => 'trim|sanitize_string',
             'age' => 'trim|sanitize_numbers',
             'country' => 'trim|sanitize_string',
             'gender' => 'trim|sanitize_string',
@@ -3135,7 +3135,7 @@ abstract class API {
         require_once(Config::read('BASE_PATH') . '/includes/device_notification.php');
         $user = ORM::for_table('users')->find_one(56);        
         $device_tokens = array('03c69df535fb9d38142ef78ed29589516e29a3752fc7b2d8a024900ace999103');      
-        return sendMessageToIPhone($device_tokens,$user->name);
+        return sendMessageToIPhone($device_tokens,  utf8_decode($user->name));
     }
 }
 
