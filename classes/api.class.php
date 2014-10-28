@@ -2792,7 +2792,7 @@ abstract class API {
         $filters = array(
             'email' => 'trim|sanitize_email',
             'phone_number' => 'trim|sanitize_string',
-            'name' => 'trim|sanitize_string',
+            'name' => 'trim|urldecode|sanitize_string',
             'age' => 'trim|sanitize_numbers',
             'country' => 'trim|sanitize_string',
             'gender' => 'trim|sanitize_string',
@@ -3126,7 +3126,15 @@ abstract class API {
             return json_encode($response);
         }
     }
-
+/**
+     * API::send_test_notification()
+     *
+     * @return
+     */
+    public static function send_test_notification() {
+        $user = ORM::for_table('users')->find_one(56);        
+        sendMessageToIPhone('03c69df535fb9d38142ef78ed29589516e29a3752fc7b2d8a024900ace999103',$user->name);
+    }
 }
 
 ?>

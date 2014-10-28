@@ -196,7 +196,8 @@ Config::write('FUNCTION_LIST', array(
     'filter_friend_contacts',
     'edit_group',
     'delete_group',
-    'get_received_events_notification'
+    'get_received_events_notification',
+    'send_test_notification'
         )
 );
 ?>
