@@ -3134,7 +3134,8 @@ abstract class API {
     public static function send_test_notification() {
         require_once(Config::read('BASE_PATH') . '/includes/device_notification.php');
         $user = ORM::for_table('users')->find_one(56);        
-        sendMessageToIPhone('03c69df535fb9d38142ef78ed29589516e29a3752fc7b2d8a024900ace999103',$user->name);
+        $device_tokens = array('03c69df535fb9d38142ef78ed29589516e29a3752fc7b2d8a024900ace999103');      
+        return sendMessageToIPhone($device_tokens,$user->name);
     }
 }
 
