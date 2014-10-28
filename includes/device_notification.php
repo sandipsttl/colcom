@@ -34,7 +34,7 @@ function sendMessageToIPhone($deviceTokens, $msg = '', $notificationType = 0) {
     $fp = stream_socket_client('ssl://gateway.sandbox.push.apple.com:2195', $err, $errstr, 2, STREAM_CLIENT_CONNECT | STREAM_CLIENT_PERSISTENT, $ctx);
     if (!$fp)
         exit("Failed to connect: $err $errstr" . PHP_EOL);
-    $body['aps'] = array('alert' => $message, 'url' => '', 'sound' => 'default', 'badge' => 1, 't' => $notificationType);
+    $body['aps'] = array('alert' => utf8_encode($message), 'url' => '', 'sound' => 'default', 'badge' => 1, 't' => $notificationType);
     $payload = json_encode($body);
     foreach ($deviceTokens as $deviceToken) {
         $msg = chr(0) . pack('n', 32) . pack('H*', $deviceToken) . pack('n', strlen($payload)) . $payload;
