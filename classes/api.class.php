@@ -1059,14 +1059,16 @@ abstract class API {
                 }
                 //$invitation_status = API::get_readable_invitation_status($invitation_status);
                 $event['current_user_invitation_status'] = API::get_readable_invitation_status($invitation_status);
-                $event_creator = ORM::for_table('users')->select_many('name', 'phone_number')->find_one($event['event_creator']);
+                $event_creator = ORM::for_table('users')->select_many('name', 'email', 'phone_number')->find_one($event['event_creator']);
                 $event['event_creator_name'] = $event_creator->name; //array_pop(ORM::for_table('users')->select('name')->find_one($event['event_creator'])->as_array());
+                $event['event_creator_email'] = $event_creator->email;
                 $event['event_creator_phone_number'] = $event_creator->phone_number;
                 $joinee = $invitees = $group_joinee = array();
                 $invitees = ORM::for_table('event_invitations')
                         ->table_alias('ei')
                         ->select_many('u.user_id', 'u.avatar', 'ei.arrival_time', 'ei.invitation_status', 'ei.sent_status')
-                        ->select_expr('u.name', 'screen_name')
+                        ->select_expr('u.name', 'invitee_name')
+                        ->select_expr('u.email', 'invitee_email')
                         ->select_expr('g.id', 'group_id')
                         ->select_expr('g.name', 'group_name')
                         ->left_outer_join('users', array('ei.user_id', '=', 'u.user_id'), 'u')
@@ -1081,7 +1083,8 @@ abstract class API {
                         if (empty($invitee['group_id'])) {
                             $joinee[$mem_incr]['avatar'] = ($invitee['avatar'] != '') ? Config::read('BASE_URL') . '/avatar/' . $invitee['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
                             $joinee[$mem_incr]['user_id'] = (int) $invitee['user_id'];
-                            $joinee[$mem_incr]['name'] = $invitee['screen_name'];
+                            $joinee[$mem_incr]['name'] = $invitee['invitee_name'];
+                            $joinee[$mem_incr]['email'] = $invitee['invitee_email'];
                             $joinee[$mem_incr]['invitation_status'] = API::get_readable_invitation_status($invitee['invitation_status']);
                             $joinee[$mem_incr]['sent_status'] = $sent_status = API::get_readable_invitation_sent_status($invitee['sent_status']);
                             $joinee[$mem_incr]['arrival_time'] = $invitee['arrival_time'];
@@ -1620,7 +1623,7 @@ abstract class API {
                 foreach ($friends as $key => $friend) {
                     $friend['friendship_status'] = API::get_readable_friendship_request_status($friend['friendship_status']);
                     $friend_list[$key]['avatar'] = ($friend_list[$key]['avatar'] != '') ? Config::read('BASE_URL') . '/avatar/' . $friend_list[$key]['avatar'] : Config::read('BASE_URL') . '/avatar/default.jpg';
-                    $friend_list[$key]['name'] = ($friend_list[$key]['name']) ? $friend_list[$key]['name'] : '';
+                    $friend_list[$key]['name'] = ($friend_list[$key]['name']) ? $friend_list[$key]['name'] : '';                    
                     $friend_list[$key] = array_merge($friend_list[$key], $friend);
                 }
             }
@@ -1629,7 +1632,7 @@ abstract class API {
             $response['message'] = $friend_list;
         } else {
             $response['message'] = $validator->get_readable_errors();
-        }
+        }        
         return json_encode($response, JSON_NUMERIC_CHECK);
     }
 
@@ -1700,7 +1703,7 @@ abstract class API {
         $data = $validator->sanitize($_REQUEST);
         $validated = $validator->validate($data, $rules);
         $data = $validator->filter($data, $filters);
-        if ($validated === TRUE) {
+        if ($validated === TRUE) {            
             $data = array_intersect_key($data, array('name' => '', 'email' => '', 'phone_number' => ''));
             $existing_friends = array();
             $sql = "( SELECT receiver_id AS user_id
@@ -1720,16 +1723,16 @@ abstract class API {
             } else {
                 $existing_friends = Helper::array_value_recursive('user_id', $existing_friends);
                 $existing_friends[] = $session->user_id;
-            }
+            }            
             foreach ($data as $key => $value) {
                 if ($key === 'phone_number') {
                     $key = 'phone_number_tr';
                     $value = substr($value, -8);
                 }
                 $like_conditions[] = $key . " LIKE '" . $value . "%' ";
-            }
+            }            
             $where_clause = implode(' OR ', $like_conditions);
-            $found_friends = array();
+            $found_friends = array();            
             $found_friends = ORM::for_table('users')->select_many('user_id', 'name', 'email', 'phone_number', 'avatar')->where_raw($where_clause)->where_not_in('user_id', $existing_friends)->find_array();
             foreach ($found_friends as $key => $friend) {
                 $friend['user_id'] = (int) $friend['user_id'];
@@ -2616,6 +2619,7 @@ abstract class API {
                     ->table_alias('g')
                     ->select_expr('g.name', 'group_name')
                     ->select_expr('u.name', 'member_name')
+                    ->select_expr('u.email', 'member_email')
                     ->select_many('g.id', 'u.user_id', 'u.avatar')
                     ->left_outer_join('group_members', array('g.id', '=', 'gm.group_id'), 'gm')
                     ->left_outer_join('users', array('gm.user_id', '=', 'u.user_id'), 'u')
@@ -2627,6 +2631,7 @@ abstract class API {
                 $pass_groups[$group['id']]['id'] = (int) $group['id'];
                 $pass_groups[$group['id']]['name'] = $group['group_name'];
                 $pass_groups[$group['id']]['members'][$i]['name'] = $group['member_name'];
+                $pass_groups[$group['id']]['members'][$i]['email'] = $group['member_email'];
                 $pass_groups[$group['id']]['members'][$i]['id'] = $group['user_id'];
                 $pass_groups[$group['id']]['members'][$i]['avatar'] = ($group['avatar'] != '') ? Config::read('BASE_URL') . '/avatar/' . $group['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
                 $i++;
@@ -2918,12 +2923,14 @@ abstract class API {
                         $application_friends[$app_friend_incr] = $app_user;
                         $application_friends[$app_friend_incr]['profile_image'] = (!empty($app_user['avatar'])) ? Config::read('BASE_URL') . '/avatar/' . $app_user['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
                         $application_friends[$app_friend_incr]['name'] = (!empty($app_user['name'])) ? $app_user['name'] : '';
+                        $application_friends[$app_friend_incr]['email'] = $app_user['email'];
                         unset($application_friends[$app_friend_incr]['avatar']);
                         $app_friend_incr++;
                     } else {
                         $application_user[$app_user_incr] = $app_user;
                         $application_user[$app_user_incr]['profile_image'] = (!empty($app_user['avatar'])) ? Config::read('BASE_URL') . '/avatar/' . $app_user['avatar'] : Config::read('BASE_URL') . '/avatar/default.png';
                         $application_user[$app_user_incr]['name'] = (!empty($app_user['name'])) ? $app_user['name'] : '';
+                        $application_user[$app_user_incr]['email'] = $app_user['email'];
                         unset($application_user[$app_user_incr]['avatar']);
                         $app_user_incr++;
                     }
