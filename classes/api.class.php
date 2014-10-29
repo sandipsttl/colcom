@@ -902,8 +902,8 @@ abstract class API {
 //                }
 //            }
             $all_events = array('sent' => $sent_events, 'received' => $received_events, 'saved' => $saved_events, 'all' => $all_events);
-        print_r($all_events);
-        exit;
+//        print_r($all_events);
+//        exit;
 //        $all_events = array('sent' => $sent_events_sorted, 'received' => $received_events_sorted, 'saved' => $saved_events);
             $response['status'] = 'success';
             $response['message'] = $all_events;            
