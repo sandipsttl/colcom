@@ -729,7 +729,10 @@ abstract class API {
                     ->table_alias('ei')
                     //->select_many('e.*','ei.*')
                     ->select_many('e.*', 'ei.invitation_id', 'ei.arrival_time', 'ei.invitation_status', 'ei.sent_status')
+                    ->select_expr('u.name', 'event_creator_name')
+                    ->select_expr('u.email', 'event_creator_email')
                     ->join('events', array('ei.event_id', '=', 'e.event_id'), 'e')
+                    ->join('users', array('e.event_creator', '=', 'u.user_id'), 'u')
                     ->where_raw('(ei.user_id = ?)', array($session->user_id))
                     ->group_by_expr('ei.event_id,ei.user_id');
             if (isset($data['event_flag']) && $data['event_flag'] == 'past') {
@@ -747,7 +750,8 @@ abstract class API {
                     $this_invitation->save();
                 }
                 unset($received_events[$key]['invitation_id']);
-                $received_events[$key]['event_creator_name'] = API::get_username($received_events[$key]['event_creator']);
+                $received_events[$key]['event_creator_name'] = $received_events[$key]['event_creator_name'];
+                $received_events[$key]['event_creator_email'] = $received_events[$key]['event_creator_email'];
                 $received_events[$key]['sent_status'] = API::get_readable_invitation_sent_status($received_event['sent_status']);
                 $received_events[$key]['event_id'] = (int) $received_event['event_id'];
                 $received_events[$key]['event_creator'] = (int) $received_event['event_creator'];
@@ -769,6 +773,7 @@ abstract class API {
                         ->table_alias('ei')
                         ->select('ei.user_id')
                         ->select_expr('u.name', 'screen_name')
+                        ->select_expr('u.email', 'email')
                         ->select_expr('g.name', 'group_name')
                         ->left_outer_join('users', array('u.user_id', '=', 'ei.user_id'), 'u')
                         ->left_outer_join('group', array('g.id', '=', 'ei.group_id'), 'g')
@@ -788,9 +793,10 @@ abstract class API {
                     unset($rec_sent_events[$key]['event_status']);
                     $saved_events[$key]['separator'] = 'saved';
 
-                    if ($sent_invitations[0]['screen_name']) {
+                    if ($sent_invitations[0]['email']) {
                         $msg = ($sent_invitations[0]['total_members'] - 1) ? ' +' . ($sent_invitations[0]['total_members'] - 1) : '';
-                        $saved_events[$key]['more_invited'] = $sent_invitations[0]['screen_name'] . $msg;
+                        $disp_name = ($sent_invitations[0]['screen_name']) ? $sent_invitations[0]['screen_name'] : $sent_invitations[0]['email'];
+                        $saved_events[$key]['more_invited'] = $disp_name . $msg;
                     } elseif ($sent_invitations[0]['group_name']) {
                         $msg = ($sent_invitations[0]['total_groups'] - 1) ? ' +' . ($sent_invitations[0]['total_groups'] - 1) : '';
                         $saved_events[$key]['more_invited'] = $sent_invitations[0]['group_name'] . $msg;
@@ -809,9 +815,10 @@ abstract class API {
                     $saved_events[$key]['total_groups'] = (int) $sent_invitations[0]['total_groups'];
                     $saved_events[$key]['total_members'] = (int) $sent_invitations[0]['total_members'];
 
-                    if ($sent_invitations[0]['screen_name']) {
+                    if ($sent_invitations[0]['email']) {
                         $msg = ($sent_invitations[0]['total_members'] - 1) ? ' +' . ($sent_invitations[0]['total_members'] - 1) : '';
-                        $saved_events[$key]['more_invited'] = $sent_invitations[0]['screen_name'] . $msg;
+                        $disp_name = ($sent_invitations[0]['screen_name']) ? $sent_invitations[0]['screen_name'] : $sent_invitations[0]['email'];
+                        $saved_events[$key]['more_invited'] = $disp_name . $msg;
                     } elseif ($sent_invitations[0]['group_name']) {
                         $msg = ($sent_invitations[0]['total_groups'] - 1) ? ' +' . ($sent_invitations[0]['total_groups'] - 1) : '';
                         $saved_events[$key]['more_invited'] = $sent_invitations[0]['group_name'] . $msg;
@@ -827,9 +834,10 @@ abstract class API {
                     $sent_events[$key]['total_members'] = (int) $sent_invitations[0]['total_members'];
                     $sent_events[$key]['latitude'] = (float) $rec_sent_event['latitude'];
                     $sent_events[$key]['longitude'] = (float) $rec_sent_event['longitude'];
-                    if ($sent_invitations[0]['screen_name']) {
+                    if ($sent_invitations[0]['email']) {
                         $msg = ($sent_invitations[0]['total_members'] - 1) ? ' +' . ($sent_invitations[0]['total_members'] - 1) : '';
-                        $sent_events[$key]['more_invited'] = $sent_invitations[0]['screen_name'] . $msg;
+                        $disp_name = ($sent_invitations[0]['screen_name']) ? $sent_invitations[0]['screen_name'] : $sent_invitations[0]['email'];
+                        $sent_events[$key]['more_invited'] = $disp_name . $msg;
                     } elseif ($sent_invitations[0]['group_name']) {
                         $msg = ($sent_invitations[0]['total_groups'] - 1) ? ' +' . ($sent_invitations[0]['total_groups'] - 1) : '';
                         $sent_events[$key]['more_invited'] = $sent_invitations[0]['group_name'] . $msg;
@@ -894,11 +902,11 @@ abstract class API {
 //                }
 //            }
             $all_events = array('sent' => $sent_events, 'received' => $received_events, 'saved' => $saved_events, 'all' => $all_events);
-//        print_r($all_events);
-//        exit;
+        print_r($all_events);
+        exit;
 //        $all_events = array('sent' => $sent_events_sorted, 'received' => $received_events_sorted, 'saved' => $saved_events);
             $response['status'] = 'success';
-            $response['message'] = $all_events;
+            $response['message'] = $all_events;            
             return json_encode($response);
         } else {
             $response['message'] = $validator->get_readable_errors();
@@ -1336,7 +1344,7 @@ abstract class API {
                             $friend_request->receiver_id = $user_id2;
                             $friend_request->status = Config::read('F_PENDING');
                             if ($friend_request->save()) {
-                                $arr_user_notification[] = (int)$user_id2;
+                                $arr_user_notification[] = (int) $user_id2;
                                 $result['sent'][] = $user;
                                 $counter['sent'] ++;
                             } else {
@@ -1350,11 +1358,11 @@ abstract class API {
                     $counter['not_sent'] ++;
                 }
             }
-            if(!empty($arr_user_notification)){ 
-                $sender = ORM::for_table('users')->where_equal('user_id',$session->user_id)->find_one();                
-                $message = ($sender->name) ? ucfirst($sender->name).' Wants to add you as a friends.' : (string)$sender->email.' Wants to add you as a friends.';
+            if (!empty($arr_user_notification)) {
+                $sender = ORM::for_table('users')->where_equal('user_id', $session->user_id)->find_one();
+                $message = ($sender->name) ? ucfirst($sender->name) . ' Wants to add you as a friends.' : (string) $sender->email . ' Wants to add you as a friends.';
                 $params = array('user_id' => json_encode($arr_user_notification), 'message' => $message);
-                $res = API::friend_request_notification($params);                
+                $res = API::friend_request_notification($params);
             }
             $response['status'] = $Lang['messages']['success'];
             $response['message'] = array('counter' => $counter, 'user_id_list' => $result);
@@ -1623,7 +1631,7 @@ abstract class API {
                 foreach ($friends as $key => $friend) {
                     $friend['friendship_status'] = API::get_readable_friendship_request_status($friend['friendship_status']);
                     $friend_list[$key]['avatar'] = ($friend_list[$key]['avatar'] != '') ? Config::read('BASE_URL') . '/avatar/' . $friend_list[$key]['avatar'] : Config::read('BASE_URL') . '/avatar/default.jpg';
-                    $friend_list[$key]['name'] = ($friend_list[$key]['name']) ? $friend_list[$key]['name'] : '';                    
+                    $friend_list[$key]['name'] = ($friend_list[$key]['name']) ? $friend_list[$key]['name'] : '';
                     $friend_list[$key] = array_merge($friend_list[$key], $friend);
                 }
             }
@@ -1632,7 +1640,7 @@ abstract class API {
             $response['message'] = $friend_list;
         } else {
             $response['message'] = $validator->get_readable_errors();
-        }        
+        }
         return json_encode($response, JSON_NUMERIC_CHECK);
     }
 
@@ -1703,7 +1711,7 @@ abstract class API {
         $data = $validator->sanitize($_REQUEST);
         $validated = $validator->validate($data, $rules);
         $data = $validator->filter($data, $filters);
-        if ($validated === TRUE) {            
+        if ($validated === TRUE) {
             $data = array_intersect_key($data, array('name' => '', 'email' => '', 'phone_number' => ''));
             $existing_friends = array();
             $sql = "( SELECT receiver_id AS user_id
@@ -1723,16 +1731,16 @@ abstract class API {
             } else {
                 $existing_friends = Helper::array_value_recursive('user_id', $existing_friends);
                 $existing_friends[] = $session->user_id;
-            }            
+            }
             foreach ($data as $key => $value) {
                 if ($key === 'phone_number') {
                     $key = 'phone_number_tr';
                     $value = substr($value, -8);
                 }
                 $like_conditions[] = $key . " LIKE '" . $value . "%' ";
-            }            
+            }
             $where_clause = implode(' OR ', $like_conditions);
-            $found_friends = array();            
+            $found_friends = array();
             $found_friends = ORM::for_table('users')->select_many('user_id', 'name', 'email', 'phone_number', 'avatar')->where_raw($where_clause)->where_not_in('user_id', $existing_friends)->find_array();
             foreach ($found_friends as $key => $friend) {
                 $friend['user_id'] = (int) $friend['user_id'];
@@ -1991,12 +1999,13 @@ abstract class API {
         }
         return json_encode($response);
     }
+
     /**
      * API::friend_request_notification()
      *
      * @return
      */
-    public static function friend_request_notification($params = false) {        
+    public static function friend_request_notification($params = false) {
         global $Lang;
         $pass_params = $params ? $params : $_REQUEST;
         if (!$params) {
@@ -2004,11 +2013,11 @@ abstract class API {
         }
         require_once(Config::read('BASE_PATH') . '/includes/device_notification.php');
         $response = array(
-            'status' => $Lang['messages']['failure'],            
+            'status' => $Lang['messages']['failure'],
         );
         $rules = array(
             'message' => 'required',
-            'user_id' => 'required'            
+            'user_id' => 'required'
         );
         $filters = array(
             'message' => 'trim|sanitize_string',
@@ -2021,7 +2030,7 @@ abstract class API {
         $data = $validator->filter($data, $filters);
         if ($validated === TRUE) {
             $users = $data['user_id'];
-            
+
             //$users = Helper::array_value_recursive('user_id',$users);
             if (!empty($users)) {
                 $devices = ORM::for_table('users')->where_in('user_id', $users)->find_array();
@@ -2031,14 +2040,14 @@ abstract class API {
                     });
                     $android_devices = array_filter($devices, function($v) {
                         return strcasecmp(strtoupper($v['client_type']), "ANDROID") == 0;
-                    });                   
+                    });
                     if (!empty($ios_devices)) {
                         $chunk_ios_devices = array_chunk($ios_devices, 25);
                         foreach ($chunk_ios_devices as $chunk_ios_devices) {
                             $device_tokens = Helper::array_value_recursive('push_token', $chunk_ios_devices);
-                            if(!empty($device_tokens)){
+                            if (!empty($device_tokens)) {
                                 $result = sendMessageToIPhone($device_tokens, $data['message']);
-                            }                            
+                            }
                         }
                         $response['status'] = $Lang['messages']['success'];
                         $response['message'] = $Lang['messages']['noti_send_success'];
@@ -2050,7 +2059,7 @@ abstract class API {
                             $message = new stdClass();
                             $message->aps = new stdClass();
                             $message->aps->alert = $data['message'];
-                            $message->aps->sound = "default"; 
+                            $message->aps->sound = "default";
                             $message->aps->t = 3;
                             $message = json_encode($message);
                             $device_tokens = Helper::array_value_recursive('push_token', $chunk_android_device);
@@ -2066,7 +2075,7 @@ abstract class API {
                     }
                 }
             }
-        } else {   
+        } else {
             $response['message'] = $validator->get_readable_errors();
         }
         return json_encode($response);
@@ -3133,17 +3142,19 @@ abstract class API {
             return json_encode($response);
         }
     }
-/**
+
+    /**
      * API::send_test_notification()
      *
      * @return
      */
     public static function send_test_notification() {
         require_once(Config::read('BASE_PATH') . '/includes/device_notification.php');
-        $user = ORM::for_table('users')->find_one(56);        
-        $device_tokens = array('03c69df535fb9d38142ef78ed29589516e29a3752fc7b2d8a024900ace999103');      
-        return sendMessageToIPhone($device_tokens,  utf8_decode($user->name));
+        $user = ORM::for_table('users')->find_one(56);
+        $device_tokens = array('03c69df535fb9d38142ef78ed29589516e29a3752fc7b2d8a024900ace999103');
+        return sendMessageToIPhone($device_tokens, utf8_decode($user->name));
     }
+
 }
 
 ?>
